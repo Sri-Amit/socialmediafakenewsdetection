@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake News Detector Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .demo-container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .tweet-demo {
+            border: 1px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            background: white;
+        }
+        .tweet-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #667eea;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .user-info h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .user-info p {
+            margin: 0;
+            color: #657786;
+            font-size: 14px;
+        }
+        .tweet-content {
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+        .tweet-actions {
+            display: flex;
+            gap: 20px;
+            color: #657786;
+            font-size: 14px;
+        }
+        .action {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        .action:hover {
+            color: #667eea;
+        }
+        .demo-tweets {
+            margin-top: 30px;
+        }
+        .demo-tweets h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .tweet-selector {
+            margin-bottom: 20px;
+        }
+        .tweet-selector label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        .tweet-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .analysis-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .analysis-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .analysis-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .results h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .score-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .score-fill {
+            flex: 1;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .score-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+            transition: width 0.5s ease;
+        }
+        .score-text {
+            font-weight: 600;
+            min-width: 60px;
+        }
+        .fact-check-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+        }
+        .fact-check-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .fact-check-icon.true {
+            background: #28a745;
+            color: white;
+        }
+        .fact-check-icon.false {
+            background: #dc3545;
+            color: white;
+        }
+        .fact-check-icon.unclear {
+            background: #ffc107;
+            color: #333;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🔍 Fake News Detector Demo</h1>
+        <p>This demo page allows you to test the Fake News Detector extension functionality with sample tweets.</p>
+        
+        <div class="demo-tweets">
+            <h2>Sample Tweets for Testing</h2>
+            
+            <div class="tweet-selector">
+                <label for="tweetSelect">Select a sample tweet:</label>
+                <select id="tweetSelect">
+                    <option value="">Choose a tweet...</option>
+                    <option value="fake">🚨 BREAKING: Scientists discover that drinking hot water with lemon cures all diseases! Doctors don't want you to know this secret!</option>
+                    <option value="credible">NASA's Perseverance rover successfully landed on Mars on February 18, 2021, marking a historic milestone in space exploration.</option>
+                    <option value="unclear">Some people say that 5G technology might have health effects, but the research is still ongoing and inconclusive.</option>
+                    <option value="mixed">The COVID-19 vaccine has been proven safe and effective in clinical trials, but some people still believe it contains microchips.</option>
+                </select>
+            </div>
+            
+            <div class="tweet-demo" id="tweetDemo" style="display: none;">
+                <div class="tweet-header">
+                    <div class="avatar">U</div>
+                    <div class="user-info">
+                        <h3>Sample User</h3>
+                        <p>@sampleuser • 2h</p>
+                    </div>
+                </div>
+                <div class="tweet-content" id="tweetContent"></div>
+                <div class="tweet-actions">
+                    <div class="action">💬 0</div>
+                    <div class="action">🔄 0</div>
+                    <div class="action">❤️ 0</div>
+                    <div class="action">📤</div>
+                </div>
+            </div>
+            
+            <button class="analysis-button" id="analyzeBtn" onclick="analyzeTweet()">Analyze Tweet</button>
+            
+            <div class="results" id="results" style="display: none;">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing tweet...</p>
+                </div>
+                
+                <div id="analysisResults" style="display: none;">
+                    <h3>📰 Headline Summary</h3>
+                    <p id="headline"></p>
+                    
+                    <h3>🎯 Credibility Score</h3>
+                    <div class="score-bar">
+                        <div class="score-fill">
+                            <div class="score-progress" id="scoreProgress"></div>
+                        </div>
+                        <span class="score-text" id="scoreText"></span>
+                    </div>
+                    
+                    <h3>🔍 Fact Check Results</h3>
+                    <div id="factCheckResults"></div>
+                    
+                    <h3>📊 Analysis Details</h3>
+                    <div id="analysisDetails"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sampleTweets = {
+            fake: {
+                content: "🚨 BREAKING: Scientists discover that drinking hot water with lemon cures all diseases! Doctors don't want you to know this secret!",
+                expectedScore: 15,
+                headline: "Unproven Health Claim About Lemon Water Cure",
+                factChecks: [
+                    { claim: "Drinking hot water with lemon cures all diseases", verdict: "FALSE", confidence: 95 },
+                    { claim: "Doctors are hiding this information", verdict: "FALSE", confidence: 90 }
+                ],
+                analysis: "This tweet contains multiple false health claims with no scientific backing. The assertion that lemon water cures all diseases is medically impossible and contradicts established medical knowledge."
+            },
+            credible: {
+                content: "NASA's Perseverance rover successfully landed on Mars on February 18, 2021, marking a historic milestone in space exploration.",
+                expectedScore: 95,
+                headline: "NASA Perseverance Rover Lands on Mars",
+                factChecks: [
+                    { claim: "Perseverance rover landed on Mars on February 18, 2021", verdict: "TRUE", confidence: 98 },
+                    { claim: "This was a historic milestone in space exploration", verdict: "TRUE", confidence: 95 }
+                ],
+                analysis: "This tweet contains accurate information about a well-documented NASA mission. The Perseverance rover landing was widely reported and verified by multiple credible sources."
+            },
+            unclear: {
+                content: "Some people say that 5G technology might have health effects, but the research is still ongoing and inconclusive.",
+                expectedScore: 60,
+                headline: "5G Health Effects Research Status",
+                factChecks: [
+                    { claim: "5G technology might have health effects", verdict: "UNCLEAR", confidence: 70 },
+                    { claim: "Research is still ongoing and inconclusive", verdict: "TRUE", confidence: 85 }
+                ],
+                analysis: "This tweet presents a balanced view of ongoing research. While some studies suggest potential health effects, the scientific consensus is that 5G is safe at current exposure levels."
+            },
+            mixed: {
+                content: "The COVID-19 vaccine has been proven safe and effective in clinical trials, but some people still believe it contains microchips.",
+                expectedScore: 75,
+                headline: "COVID-19 Vaccine Safety vs Microchip Conspiracy",
+                factChecks: [
+                    { claim: "COVID-19 vaccine has been proven safe and effective in clinical trials", verdict: "TRUE", confidence: 95 },
+                    { claim: "Some people believe it contains microchips", verdict: "TRUE", confidence: 90 }
+                ],
+                analysis: "This tweet combines factual information about vaccine safety with acknowledgment of conspiracy theories. The vaccine safety claim is well-supported by scientific evidence."
+            }
+        };
+
+        document.getElementById('tweetSelect').addEventListener('change', function() {
+            const selectedTweet = this.value;
+            const tweetDemo = document.getElementById('tweetDemo');
+            const tweetContent = document.getElementById('tweetContent');
+            
+            if (selectedTweet && sampleTweets[selectedTweet]) {
+                tweetContent.textContent = sampleTweets[selectedTweet].content;
+                tweetDemo.style.display = 'block';
+            } else {
+                tweetDemo.style.display = 'none';
+            }
+            
+            document.getElementById('results').style.display = 'none';
+        });
+
+        function analyzeTweet() {
+            const selectedTweet = document.getElementById('tweetSelect').value;
+            
+            if (!selectedTweet) {
+                alert('Please select a tweet first');
+                return;
+            }
+            
+            const tweetData = sampleTweets[selectedTweet];
+            const results = document.getElementById('results');
+            const loading = document.getElementById('loading');
+            const analysisResults = document.getElementById('analysisResults');
+            
+            results.style.display = 'block';
+            loading.style.display = 'block';
+            analysisResults.style.display = 'none';
+            
+            // Simulate API delay
+            setTimeout(() => {
+                displayResults(tweetData);
+                loading.style.display = 'none';
+                analysisResults.style.display = 'block';
+            }, 2000);
+        }
+
+        function displayResults(data) {
+            // Display headline
+            document.getElementById('headline').textContent = data.headline;
+            
+            // Display credibility score
+            const score = data.expectedScore;
+            const scoreProgress = document.getElementById('scoreProgress');
+            const scoreText = document.getElementById('scoreText');
+            
+            scoreProgress.style.width = `${score}%`;
+            scoreText.textContent = `${score}%`;
+            
+            // Color code the score
+            if (score >= 70) {
+                scoreText.style.color = '#28a745';
+            } else if (score >= 40) {
+                scoreText.style.color = '#ffc107';
+            } else {
+                scoreText.style.color = '#dc3545';
+            }
+            
+            // Display fact check results
+            const factCheckContainer = document.getElementById('factCheckResults');
+            factCheckContainer.innerHTML = '';
+            
+            data.factChecks.forEach(check => {
+                const item = document.createElement('div');
+                item.className = 'fact-check-item';
+                
+                const icon = document.createElement('div');
+                icon.className = `fact-check-icon ${check.verdict.toLowerCase()}`;
+                icon.textContent = check.verdict === 'TRUE' ? '✓' : check.verdict === 'FALSE' ? '✗' : '?';
+                
+                const text = document.createElement('span');
+                text.textContent = check.claim;
+                
+                item.appendChild(icon);
+                item.appendChild(text);
+                factCheckContainer.appendChild(item);
+            });
+            
+            // Display analysis
+            document.getElementById('analysisDetails').innerHTML = `<p>${data.analysis}</p>`;
+        }
+    </script>
+</body>
+</html> 

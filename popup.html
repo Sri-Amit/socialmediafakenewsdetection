@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake News Detector</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Fake News Detector</h1>
+            <p>Analyze Twitter posts for credibility</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <textarea id="tweetText" placeholder="Paste tweet content here or click 'Analyze Current Tweet'"></textarea>
+                <div class="button-group">
+                    <button id="analyzeCurrent" class="btn primary">Analyze Current Tweet</button>
+                    <button id="analyzePasted" class="btn secondary">Analyze Pasted Text</button>
+                </div>
+            </div>
+            
+            <div class="results-section" id="results" style="display: none;">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing tweet...</p>
+                </div>
+                
+                <div class="analysis-results" id="analysisResults" style="display: none;">
+                    <div class="result-card">
+                        <h3>📰 Headline Summary</h3>
+                        <p id="headline"></p>
+                    </div>
+                    
+                    <div class="result-card">
+                        <h3>🎯 Credibility Score</h3>
+                        <div class="score-container">
+                            <div class="score-bar">
+                                <div class="score-fill" id="scoreFill"></div>
+                            </div>
+                            <span id="scoreText"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="result-card">
+                        <h3>🔍 Fact Check Results</h3>
+                        <div id="factCheckResults"></div>
+                    </div>
+                    
+                    <div class="result-card">
+                        <h3>📊 Analysis Details</h3>
+                        <div id="analysisDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="settings">
+                <label>
+                    <input type="checkbox" id="autoAnalyze"> Auto-analyze tweets
+                </label>
+            </div>
+            <div class="api-status" id="apiStatus">
+                <span class="status-dot"></span>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html> 
