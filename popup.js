@@ -199,23 +199,74 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (data.sources && data.sources.length > 0) {
             const sourcesTitle = document.createElement('h4');
-            sourcesTitle.textContent = 'Sources:';
-            sourcesTitle.style.marginTop = '10px';
-            sourcesTitle.style.fontSize = '12px';
-            sourcesTitle.style.color = '#6c757d';
+            sourcesTitle.textContent = 'Credible Sources:';
+            sourcesTitle.style.marginTop = '15px';
+            sourcesTitle.style.fontSize = '14px';
+            sourcesTitle.style.color = '#495057';
             detailsContainer.appendChild(sourcesTitle);
             
-            data.sources.forEach(source => {
+            data.sources.forEach((source, index) => {
+                const sourceContainer = document.createElement('div');
+                sourceContainer.className = 'source-item';
+                sourceContainer.style.marginTop = '10px';
+                sourceContainer.style.padding = '8px';
+                sourceContainer.style.background = '#f8f9fa';
+                sourceContainer.style.borderRadius = '4px';
+                sourceContainer.style.border = '1px solid #e9ecef';
+                
+                // Source title and link
                 const sourceLink = document.createElement('a');
                 sourceLink.href = source.url;
                 sourceLink.textContent = source.title || source.url;
                 sourceLink.target = '_blank';
                 sourceLink.style.display = 'block';
-                sourceLink.style.fontSize = '12px';
+                sourceLink.style.fontSize = '13px';
                 sourceLink.style.color = '#667eea';
                 sourceLink.style.textDecoration = 'none';
-                sourceLink.style.marginTop = '5px';
-                detailsContainer.appendChild(sourceLink);
+                sourceLink.style.fontWeight = '500';
+                sourceContainer.appendChild(sourceLink);
+                
+                // Source domain
+                const sourceDomain = document.createElement('div');
+                sourceDomain.textContent = source.source;
+                sourceDomain.style.fontSize = '11px';
+                sourceDomain.style.color = '#6c757d';
+                sourceDomain.style.marginTop = '2px';
+                sourceContainer.appendChild(sourceDomain);
+                
+                // Credibility scores
+                if (source.credibilityScore !== undefined) {
+                    const scoresContainer = document.createElement('div');
+                    scoresContainer.style.display = 'flex';
+                    scoresContainer.style.gap = '15px';
+                    scoresContainer.style.marginTop = '5px';
+                    scoresContainer.style.fontSize = '11px';
+                    
+                    const credibilityScore = document.createElement('span');
+                    credibilityScore.textContent = `Credibility: ${source.credibilityScore}%`;
+                    credibilityScore.style.color = source.credibilityScore >= 80 ? '#28a745' : source.credibilityScore >= 60 ? '#ffc107' : '#dc3545';
+                    credibilityScore.style.fontWeight = '600';
+                    scoresContainer.appendChild(credibilityScore);
+                    
+                    if (source.relevanceScore !== undefined) {
+                        const relevanceScore = document.createElement('span');
+                        relevanceScore.textContent = `Relevance: ${source.relevanceScore}%`;
+                        relevanceScore.style.color = '#6c757d';
+                        scoresContainer.appendChild(relevanceScore);
+                    }
+                    
+                    if (source.finalScore !== undefined) {
+                        const finalScore = document.createElement('span');
+                        finalScore.textContent = `Overall: ${source.finalScore}%`;
+                        finalScore.style.color = '#667eea';
+                        finalScore.style.fontWeight = '600';
+                        scoresContainer.appendChild(finalScore);
+                    }
+                    
+                    sourceContainer.appendChild(scoresContainer);
+                }
+                
+                detailsContainer.appendChild(sourceContainer);
             });
         }
     }

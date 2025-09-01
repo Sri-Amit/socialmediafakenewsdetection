@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dynamic Credibility System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            resize: vertical;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #5a6fd8;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .example-tweets {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .example-tweet {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .example-tweet:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+        .tweet-subject {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .tweet-text {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .credibility-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .credibility-info h3 {
+            color: #1976d2;
+            margin-top: 0;
+        }
+        .credibility-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .credibility-info li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test Dynamic Credibility System</h1>
+        
+        <div class="credibility-info">
+            <h3>🎯 How the New System Works</h3>
+            <ul>
+                <li><strong>Content Analysis:</strong> AI analyzes the tweet to determine subject matter (Politics, Sports, Science, etc.)</li>
+                <li><strong>Dynamic Source Selection:</strong> Different credible sources for different subjects</li>
+                <li><strong>Intelligent Scoring:</strong> Sources scored based on relevance and credibility</li>
+                <li><strong>Context Awareness:</strong> Geographic scope and temporal context considered</li>
+            </ul>
+        </div>
+        
+        <div class="form-group">
+            <label for="testText">Test Tweet:</label>
+            <textarea id="testText" placeholder="Enter a tweet to test the dynamic credibility system...">Breaking news: Scientists discover that drinking coffee can extend your life by 10 years, according to a new study published in Nature.</textarea>
+        </div>
+        
+        <button onclick="testDynamicCredibility()">Test Dynamic Credibility</button>
+        <button onclick="showExampleSubjects()">Show Subject Examples</button>
+        <button onclick="testSubjectDetection()">Test Subject Detection</button>
+        
+        <h3>📝 Example Tweets by Subject</h3>
+        <div class="example-tweets">
+            <div class="example-tweet" onclick="loadExample(this)">
+                <div class="tweet-subject">🏛️ POLITICS</div>
+                <div class="tweet-text">President announces new economic policy that will create 2 million jobs, according to White House officials.</div>
+            </div>
+            <div class="example-tweet" onclick="loadExample(this)">
+                <div class="tweet-subject">⚽ SPORTS</div>
+                <div class="tweet-text">Lakers star LeBron James scores 40 points in comeback victory against Warriors, setting new season record.</div>
+            </div>
+            <div class="example-tweet" onclick="loadExample(this)">
+                <div class="tweet-subject">🔬 SCIENCE</div>
+                <div class="tweet-text">NASA researchers discover evidence of water on Mars, published in prestigious journal Science.</div>
+            </div>
+            <div class="example-tweet" onclick="loadExample(this)">
+                <div class="tweet-subject">🏥 HEALTH</div>
+                <div class="tweet-text">CDC reports breakthrough in COVID-19 treatment, new vaccine shows 95% effectiveness in clinical trials.</div>
+            </div>
+            <div class="example-tweet" onclick="loadExample(this)">
+                <div class="tweet-subject">💼 BUSINESS</div>
+                <div class="tweet-text">Apple stock reaches all-time high as company reports record quarterly profits exceeding $100 billion.</div>
+            </div>
+            <div class="example-tweet" onclick="loadExample(this)">
+                <div class="tweet-subject">🌍 INTERNATIONAL</div>
+                <div class="tweet-text">UN Security Council passes resolution on climate change, 15 countries agree to reduce emissions by 2030.</div>
+            </div>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function showResult(message, type = 'success') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = message;
+        }
+
+        function loadExample(element) {
+            const tweetText = element.querySelector('.tweet-text').textContent;
+            document.getElementById('testText').value = tweetText;
+        }
+
+        function showExampleSubjects() {
+            let result = `📊 SUBJECT-SPECIFIC CREDIBLE SOURCES\n\n`;
+            
+            const subjects = {
+                'POLITICS': ['nytimes.com', 'washingtonpost.com', 'wsj.com', 'politico.com', 'thehill.com'],
+                'SPORTS': ['espn.com', 'sportsillustrated.com', 'bleacherreport.com', 'cbssports.com'],
+                'SCIENCE': ['nature.com', 'science.org', 'cell.com', 'thelancet.com', 'scientificamerican.com'],
+                'HEALTH': ['who.int', 'cdc.gov', 'nih.gov', 'mayoclinic.org', 'webmd.com'],
+                'BUSINESS': ['wsj.com', 'bloomberg.com', 'ft.com', 'economist.com', 'forbes.com'],
+                'TECHNOLOGY': ['techcrunch.com', 'wired.com', 'ars-technica.com', 'theverge.com'],
+                'INTERNATIONAL': ['reuters.com', 'bbc.com', 'ap.org', 'aljazeera.com', 'dw.com']
+            };
+            
+            Object.entries(subjects).forEach(([subject, sources]) => {
+                result += `${subject}:\n`;
+                sources.forEach(source => {
+                    result += `  • ${source}\n`;
+                });
+                result += `\n`;
+            });
+            
+            result += `🎯 KEY FEATURES:\n`;
+            result += `• Different sources for different subjects\n`;
+            result += `• Geographic scope awareness\n`;
+            result += `• Credibility scoring (0-100)\n`;
+            result += `• Relevance scoring based on subject match\n`;
+            result += `• Overall score combining both factors\n`;
+            
+            showResult(result, 'success');
+        }
+
+        async function testSubjectDetection() {
+            const testText = document.getElementById('testText').value.trim();
+            if (!testText) {
+                showResult('Please enter some text to test', 'error');
+                return;
+            }
+
+            try {
+                showResult('Testing subject detection...', 'warning');
+                
+                // Simulate the content analysis
+                const mockAnalysis = analyzeContentSubjectMock(testText);
+                
+                let result = `🔍 SUBJECT DETECTION TEST RESULTS\n\n`;
+                result += `Tweet: "${testText}"\n\n`;
+                result += `AI Analysis Results:\n`;
+                result += `• Primary Subject: ${mockAnalysis.primarySubject}\n`;
+                result += `• Secondary Subjects: ${mockAnalysis.secondarySubjects.join(', ') || 'None'}\n`;
+                result += `• Geographic Scope: ${mockAnalysis.geographicScope}\n`;
+                result += `• Temporal Context: ${mockAnalysis.temporalContext}\n`;
+                result += `• Confidence: ${mockAnalysis.confidence}%\n\n`;
+                
+                result += `Credible Sources Selected:\n`;
+                const sources = getSubjectSpecificCredibleSourcesMock(mockAnalysis);
+                Object.entries(sources).forEach(([domain, info]) => {
+                    result += `• ${domain}: ${info.credibility}% credibility, ${info.subjects.join(', ')} subjects\n`;
+                });
+                
+                showResult(result, 'success');
+                
+            } catch (error) {
+                showResult(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDynamicCredibility() {
+            const testText = document.getElementById('testText').value.trim();
+            if (!testText) {
+                showResult('Please enter some text to test', 'error');
+                return;
+            }
+
+            try {
+                showResult('Testing dynamic credibility system...', 'warning');
+                
+                // Simulate the complete system
+                const mockAnalysis = analyzeContentSubjectMock(testText);
+                const mockSources = getSubjectSpecificCredibleSourcesMock(mockAnalysis);
+                const mockNewsResults = generateMockNewsResults(testText);
+                const scoredSources = scoreAndRankSourcesMock(mockNewsResults, mockSources, mockAnalysis);
+                
+                let result = `🚀 DYNAMIC CREDIBILITY SYSTEM TEST\n\n`;
+                result += `Tweet: "${testText}"\n\n`;
+                
+                result += `=== CONTENT ANALYSIS ===\n`;
+                result += `Primary Subject: ${mockAnalysis.primarySubject}\n`;
+                result += `Geographic Scope: ${mockAnalysis.geographicScope}\n`;
+                result += `Temporal Context: ${mockAnalysis.temporalContext}\n\n`;
+                
+                result += `=== CREDIBLE SOURCES SELECTED ===\n`;
+                Object.entries(mockSources).forEach(([domain, info]) => {
+                    result += `• ${domain}: ${info.credibility}% credibility\n`;
+                });
+                result += `\n`;
+                
+                result += `=== SCORED AND RANKED SOURCES ===\n`;
+                scoredSources.forEach((source, index) => {
+                    result += `${index + 1}. ${source.source} (${source.title})\n`;
+                    result += `   Credibility: ${source.credibilityScore}% | Relevance: ${source.relevanceScore}% | Overall: ${source.finalScore}%\n`;
+                    result += `   URL: ${source.url}\n\n`;
+                });
+                
+                showResult(result, 'success');
+                
+            } catch (error) {
+                showResult(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function analyzeContentSubjectMock(content) {
+            const text = content.toLowerCase();
+            
+            let primarySubject = 'OTHER';
+            let geographicScope = 'NATIONAL';
+            
+            if (text.includes('president') || text.includes('congress') || text.includes('election') || text.includes('policy')) {
+                primarySubject = 'POLITICS';
+            } else if (text.includes('sport') || text.includes('game') || text.includes('team') || text.includes('player')) {
+                primarySubject = 'SPORTS';
+            } else if (text.includes('study') || text.includes('research') || text.includes('scientist') || text.includes('discovery')) {
+                primarySubject = 'SCIENCE';
+            } else if (text.includes('health') || text.includes('medical') || text.includes('disease') || text.includes('treatment')) {
+                primarySubject = 'HEALTH';
+            } else if (text.includes('business') || text.includes('economy') || text.includes('market') || text.includes('company')) {
+                primarySubject = 'BUSINESS';
+            } else if (text.includes('tech') || text.includes('technology') || text.includes('ai') || text.includes('software')) {
+                primarySubject = 'TECHNOLOGY';
+            }
+            
+            if (text.includes('world') || text.includes('international') || text.includes('global')) {
+                geographicScope = 'INTERNATIONAL';
+            } else if (text.includes('local') || text.includes('city') || text.includes('town')) {
+                geographicScope = 'LOCAL';
+            }
+            
+            return {
+                primarySubject: primarySubject,
+                secondarySubjects: [],
+                geographicScope: geographicScope,
+                temporalContext: 'CURRENT_EVENT',
+                credibilityFactors: ['keyword_analysis'],
+                confidence: 75
+            };
+        }
+
+        function getSubjectSpecificCredibleSourcesMock(contentAnalysis) {
+            const { primarySubject } = contentAnalysis;
+            
+            const baseSources = {
+                'reuters.com': { credibility: 95, subjects: ['ALL'], scope: 'INTERNATIONAL' },
+                'ap.org': { credibility: 95, subjects: ['ALL'], scope: 'INTERNATIONAL' },
+                'bbc.com': { credibility: 90, subjects: ['ALL'], scope: 'INTERNATIONAL' }
+            };
+            
+            const subjectSources = {
+                'POLITICS': {
+                    'nytimes.com': { credibility: 88, subjects: ['POLITICS'], scope: 'NATIONAL' },
+                    'washingtonpost.com': { credibility: 87, subjects: ['POLITICS'], scope: 'NATIONAL' }
+                },
+                'SPORTS': {
+                    'espn.com': { credibility: 85, subjects: ['SPORTS'], scope: 'INTERNATIONAL' },
+                    'sportsillustrated.com': { credibility: 82, subjects: ['SPORTS'], scope: 'INTERNATIONAL' }
+                },
+                'SCIENCE': {
+                    'nature.com': { credibility: 98, subjects: ['SCIENCE'], scope: 'INTERNATIONAL' },
+                    'science.org': { credibility: 98, subjects: ['SCIENCE'], scope: 'INTERNATIONAL' }
+                },
+                'HEALTH': {
+                    'who.int': { credibility: 98, subjects: ['HEALTH'], scope: 'INTERNATIONAL' },
+                    'cdc.gov': { credibility: 98, subjects: ['HEALTH'], scope: 'NATIONAL' }
+                }
+            };
+            
+            const allSources = { ...baseSources };
+            if (subjectSources[primarySubject]) {
+                Object.assign(allSources, subjectSources[primarySubject]);
+            }
+            
+            return allSources;
+        }
+
+        function generateMockNewsResults(content) {
+            const mockSources = [
+                'reuters.com', 'ap.org', 'bbc.com', 'nytimes.com', 'nature.com',
+                'espn.com', 'who.int', 'techcrunch.com', 'politico.com'
+            ];
+            
+            return mockSources.map((source, index) => ({
+                title: `Mock news article ${index + 1} about ${content.substring(0, 30)}...`,
+                link: `https://${source}/article-${index + 1}`,
+                snippet: `This is a mock snippet for testing the dynamic credibility system.`
+            }));
+        }
+
+        function scoreAndRankSourcesMock(newsResults, credibleSources, contentAnalysis) {
+            return newsResults
+                .map(result => {
+                    const domain = result.link.replace('https://', '').split('/')[0];
+                    const sourceInfo = credibleSources[domain];
+                    
+                    let credibilityScore = sourceInfo ? sourceInfo.credibility : 40;
+                    let relevanceScore = 0;
+                    
+                    if (sourceInfo) {
+                        if (sourceInfo.subjects.includes('ALL') || sourceInfo.subjects.includes(contentAnalysis.primarySubject)) {
+                            relevanceScore += 20;
+                        }
+                        if (sourceInfo.scope === contentAnalysis.geographicScope || sourceInfo.scope === 'INTERNATIONAL') {
+                            relevanceScore += 15;
+                        }
+                    }
+                    
+                    const finalScore = (credibilityScore * 0.7) + (relevanceScore * 0.3);
+                    
+                    return {
+                        title: result.title,
+                        url: result.link,
+                        snippet: result.snippet,
+                        source: domain,
+                        credibilityScore: Math.round(credibilityScore),
+                        relevanceScore: Math.round(relevanceScore),
+                        finalScore: Math.round(finalScore)
+                    };
+                })
+                .filter(result => result.finalScore >= 50)
+                .sort((a, b) => b.finalScore - a.finalScore);
+        }
+    </script>
+</body>
+</html>
