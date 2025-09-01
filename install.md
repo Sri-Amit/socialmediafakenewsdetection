@@ -4,12 +4,11 @@
 
 ### Step 1: Get API Keys
 
-1. **OpenAI API Key** (Required)
-   - Go to [OpenAI Platform](https://platform.openai.com/)
-   - Sign up or log in
-   - Go to "API Keys" section
-   - Create a new API key
-   - Copy the key (starts with `sk-`)
+1. **Google Gemini API Key** (Required)
+   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Sign in with your Google account
+   - Click "Create API Key"
+   - Copy the generated API key
 
 2. **SerpAPI Key** (Optional but recommended)
    - Go to [SerpAPI](https://serpapi.com/)
@@ -21,15 +20,13 @@
 
 1. **Edit the configuration file**
    - Open `background.js` in a text editor
-   - Find these lines:
+   - Find this line:
      ```javascript
-     const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY';
-     const SERPAPI_KEY = 'YOUR_SERPAPI_KEY';
+     const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
      ```
-   - Replace with your actual API keys:
+   - Replace with your actual API key:
      ```javascript
-     const OPENAI_API_KEY = 'sk-your-actual-openai-key-here';
-     const SERPAPI_KEY = 'your-actual-serpapi-key-here';
+     const GEMINI_API_KEY = 'your-actual-gemini-api-key-here';
      ```
 
 ### Step 3: Load Extension in Chrome
@@ -76,7 +73,7 @@
 
 ### API Errors
 - Double-check your API keys are correct
-- Ensure you have credits in your OpenAI account
+- Ensure you have a valid Gemini API key
 - Check your internet connection
 
 ### No Analysis Results
@@ -86,10 +83,11 @@
 
 ## API Usage Costs
 
-### OpenAI Costs
-- GPT-3.5-turbo: ~$0.002 per 1K tokens
-- Typical analysis: 500-1000 tokens
-- Cost per analysis: ~$0.001-0.002
+### Google Gemini Costs
+- **Free tier**: 15 requests per minute, 1500 requests per day
+- **Paid tier**: $0.0005 per 1K characters input, $0.0015 per 1K characters output
+- Typical analysis: 500-1000 characters
+- Cost per analysis: Free (within limits) or ~$0.0005-0.001
 
 ### SerpAPI Costs
 - Free tier: 100 searches per month

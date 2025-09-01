@@ -1,8 +1,8 @@
-// Background service worker for the Fake News Detector extension
+// Fake News Detector Extension - Background Script
+// Handles API calls and data processing
 
-// API configuration
-const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY'; // Replace with your actual API key
-const SERPAPI_KEY = '2dac97bf1929796a23e3babe9480e1a4e5e060cf9ee9a96a2582c001b7e23623'; // Replace with your actual API key
+const GEMINI_API_KEY = 'AIzaSyDaU5J4YTH70BihYb8QbGHjiK6negpX2os'; // Replace with your actual API key
+const SERPAPI_KEY = '2dac97bf1929796a23e3babe9480e1a4e5e060cf9ee9a96a2582c001b7e23623'; // Replace with your actual SerpAPI key
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -18,7 +18,7 @@ async function analyzeTweet(content) {
     try {
         console.log('Analyzing tweet:', content);
 
-        // Step 1: Generate headline summary using OpenAI
+        // Step 1: Generate headline summary using Google Gemini
         const headline = await generateHeadline(content);
         console.log('Generated headline:', headline);
 
@@ -64,35 +64,32 @@ async function analyzeTweet(content) {
 
 async function generateHeadline(content) {
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a professional news editor. Create a concise, factual headline (maximum 10 words) that summarizes the main claim or statement in the given text. Focus on the most newsworthy or controversial claim.'
-                    },
-                    {
-                        role: 'user',
-                        content: `Create a headline for this tweet: "${content}"`
-                    }
-                ],
-                max_tokens: 50,
-                temperature: 0.3
+                contents: [{
+                    parts: [{
+                        text: `You are a professional news editor. Create a concise, factual headline (maximum 10 words) that summarizes the main claim or statement in the given text. Focus on the most newsworthy or controversial claim.
+
+Create a headline for this tweet: "${content}"`
+                    }]
+                }],
+                generationConfig: {
+                    maxOutputTokens: 50,
+                    temperature: 0.3
+                }
             })
         });
 
         if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status}`);
+            throw new Error(`Gemini API error: ${response.status}`);
         }
 
         const data = await response.json();
-        return data.choices[0].message.content.trim().replace(/^["']|["']$/g, '');
+        return data.candidates[0].content.parts[0].text.trim().replace(/^["']|["']$/g, '');
     } catch (error) {
         console.error('Error generating headline:', error);
         return 'Headline generation failed';
@@ -101,35 +98,32 @@ async function generateHeadline(content) {
 
 async function extractClaims(content) {
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'Extract specific factual claims from the given text. Return only the claims as a JSON array of strings. Focus on verifiable statements, statistics, or assertions that can be fact-checked.'
-                    },
-                    {
-                        role: 'user',
-                        content: `Extract claims from: "${content}"`
-                    }
-                ],
-                max_tokens: 200,
-                temperature: 0.1
+                contents: [{
+                    parts: [{
+                        text: `Extract specific factual claims from the given text. Return only the claims as a JSON array of strings. Focus on verifiable statements, statistics, or assertions that can be fact-checked.
+
+Extract claims from: "${content}"`
+                    }]
+                }],
+                generationConfig: {
+                    maxOutputTokens: 200,
+                    temperature: 0.1
+                }
             })
         });
 
         if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status}`);
+            throw new Error(`Gemini API error: ${response.status}`);
         }
 
         const data = await response.json();
-        const claimsText = data.choices[0].message.content.trim();
+        const claimsText = data.candidates[0].content.parts[0].text.trim();
         
         try {
             return JSON.parse(claimsText);
@@ -194,18 +188,15 @@ async function factCheckClaims(claims, sources) {
         for (const claim of claims) {
             if (!claim.trim()) continue;
             
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'gpt-3.5-turbo',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: `You are a fact-checker. Analyze the given claim against the provided sources. Return a JSON object with:
+                    contents: [{
+                        parts: [{
+                            text: `You are a fact-checker. Analyze the given claim against the provided sources. Return a JSON object with:
                             {
                                 "claim": "the original claim",
                                 "verdict": "TRUE/FALSE/UNCLEAR",
@@ -214,23 +205,21 @@ async function factCheckClaims(claims, sources) {
                             }
                             
                             Sources: ${JSON.stringify(sources)}`
-                        },
-                        {
-                            role: 'user',
-                            content: `Fact-check this claim: "${claim}"`
-                        }
-                    ],
-                    max_tokens: 300,
-                    temperature: 0.1
+                        }]
+                    }],
+                    generationConfig: {
+                        maxOutputTokens: 300,
+                        temperature: 0.1
+                    }
                 })
             });
 
             if (!response.ok) {
-                throw new Error(`OpenAI API error: ${response.status}`);
+                throw new Error(`Gemini API error: ${response.status}`); // Changed to Gemini API error
             }
 
             const data = await response.json();
-            const resultText = data.choices[0].message.content.trim();
+            const resultText = data.candidates[0].content.parts[0].text.trim();
             
             try {
                 const result = JSON.parse(resultText);
@@ -298,39 +287,36 @@ function calculateCredibilityScore(factChecks, sources) {
 
 async function generateAnalysis(content, factChecks, sources, credibilityScore) {
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a fact-checking analyst. Provide a brief, objective analysis of the credibility of the given content based on the fact-check results and sources. Keep it under 100 words.'
-                    },
-                    {
-                        role: 'user',
-                        content: `Analyze this content: "${content}"
+                contents: [{
+                    parts: [{
+                        text: `You are a fact-checking analyst. Provide a brief, objective analysis of the credibility of the given content based on the fact-check results and sources. Keep it under 100 words.
+
+Analyze this content: "${content}"
                         
                         Fact checks: ${JSON.stringify(factChecks)}
                         Credibility score: ${credibilityScore}%
                         Sources found: ${sources.length}`
-                    }
-                ],
-                max_tokens: 150,
-                temperature: 0.3
+                    }]
+                }],
+                generationConfig: {
+                    maxOutputTokens: 150,
+                    temperature: 0.3
+                }
             })
         });
 
         if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status}`);
+            throw new Error(`Gemini API error: ${response.status}`); // Changed to Gemini API error
         }
 
         const data = await response.json();
-        return data.choices[0].message.content.trim();
+        return data.candidates[0].content.parts[0].text.trim();
     } catch (error) {
         console.error('Error generating analysis:', error);
         return 'Analysis generation failed';

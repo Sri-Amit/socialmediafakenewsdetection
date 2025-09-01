@@ -2,10 +2,10 @@
 // Copy this file to config.local.js and add your actual API keys
 
 const config = {
-    // OpenAI API Configuration
-    openai: {
-        apiKey: 'YOUR_OPENAI_API_KEY', // Replace with your actual OpenAI API key
-        model: 'gpt-3.5-turbo',
+    // Google Gemini API Configuration
+    gemini: {
+        apiKey: 'AIzaSyDaU5J4YTH70BihYb8QbGHjiK6negpX2os', // Replace with your actual Gemini API key
+        model: 'gemini-pro',
         maxTokens: {
             headline: 50,
             claims: 200,
@@ -22,7 +22,7 @@ const config = {
 
     // SerpAPI Configuration (Optional)
     serpapi: {
-        apiKey: 'YOUR_SERPAPI_KEY', // Replace with your actual SerpAPI key
+        apiKey: '2dac97bf1929796a23e3babe9480e1a4e5e060cf9ee9a96a2582c001b7e23623', // Replace with your actual SerpAPI key
         engine: 'google',
         numResults: 10,
         newsOnly: true

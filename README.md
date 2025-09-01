@@ -4,7 +4,7 @@ A Chrome extension that analyzes Twitter posts for fake news detection using AI 
 
 ## Features
 
-- 🔍 **AI-Powered Analysis**: Uses OpenAI GPT to analyze tweet content
+- 🔍 **AI-Powered Analysis**: Uses Google Gemini to analyze tweet content
 - 📰 **Headline Generation**: Creates concise headlines summarizing tweet claims
 - 🎯 **Credibility Scoring**: Provides percentage-based credibility scores
 - 🔍 **Fact-Checking**: Extracts and verifies specific claims against credible sources
@@ -16,7 +16,7 @@ A Chrome extension that analyzes Twitter posts for fake news detection using AI 
 ## How It Works
 
 1. **Content Extraction**: Extracts tweet text from Twitter/X pages
-2. **AI Analysis**: Uses OpenAI to generate headlines and extract claims
+2. **AI Analysis**: Uses Google Gemini to generate headlines and extract claims
 3. **Web Search**: Searches for credible news sources using SerpAPI
 4. **Fact-Checking**: Verifies claims against found sources
 5. **Scoring**: Calculates credibility score based on fact-check results
@@ -27,7 +27,7 @@ A Chrome extension that analyzes Twitter posts for fake news detection using AI 
 ### Prerequisites
 
 - Chrome browser
-- OpenAI API key
+- Google Gemini API key
 - SerpAPI key (optional, for enhanced source search)
 
 ### Installation
@@ -40,7 +40,7 @@ A Chrome extension that analyzes Twitter posts for fake news detection using AI 
 
 2. **Configure API Keys**
    - Open `background.js`
-   - Replace `YOUR_OPENAI_API_KEY` with your actual OpenAI API key
+   - Replace `YOUR_GEMINI_API_KEY` with your actual Google Gemini API key
    - Replace `YOUR_SERPAPI_KEY` with your SerpAPI key (optional)
 
 3. **Load Extension in Chrome**
@@ -50,7 +50,7 @@ A Chrome extension that analyzes Twitter posts for fake news detection using AI 
    - Select the extension folder
 
 4. **Get API Keys**
-   - **OpenAI**: Sign up at [OpenAI](https://platform.openai.com/) and get an API key
+   - **Google Gemini**: Sign up at [Google AI Studio](https://makersuite.google.com/app/apikey) and get an API key
    - **SerpAPI**: Sign up at [SerpAPI](https://serpapi.com/) for enhanced web search (optional)
 
 ## Usage
@@ -97,8 +97,8 @@ fakenewstwitterdetection/
 
 ## API Configuration
 
-### Required: OpenAI API
-The extension requires an OpenAI API key for:
+### Required: Google Gemini API
+The extension requires a Google Gemini API key for:
 - Headline generation
 - Claim extraction
 - Fact-checking analysis
@@ -119,7 +119,7 @@ SerpAPI enhances the extension by:
 
 ## Limitations
 
-- **API Costs**: OpenAI and SerpAPI usage incurs costs
+- **API Costs**: Google Gemini and SerpAPI usage incurs costs
 - **Rate Limits**: API providers may have rate limits
 - **Accuracy**: AI analysis is not 100% accurate
 - **Source Availability**: Depends on available credible sources
@@ -164,4 +164,4 @@ This extension is for educational and informational purposes only. AI-generated 
 For issues, questions, or contributions:
 - Create an issue on GitHub
 - Check the troubleshooting section above
-- Review API documentation for OpenAI and SerpAPI 
+- Review API documentation for Google Gemini and SerpAPI 

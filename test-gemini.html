@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini API Test - Fake News Detector</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .test-container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .api-key-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .test-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+            color: #155724;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Gemini API Integration Test</h1>
+        <p>This page tests the Gemini API integration for the Fake News Detector extension.</p>
+        
+        <div class="test-section">
+            <h3>🔑 API Configuration</h3>
+            <input type="text" id="apiKey" class="api-key-input" placeholder="Enter your Gemini API key here..." />
+            <p><small>Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></small></p>
+        </div>
+        
+        <div class="test-section">
+            <h3>🧪 Test Functions</h3>
+            <button class="test-button" onclick="testHeadlineGeneration()">Test Headline Generation</button>
+            <button class="test-button" onclick="testClaimExtraction()">Test Claim Extraction</button>
+            <button class="test-button" onclick="testFactChecking()">Test Fact Checking</button>
+            <button class="test-button" onclick="testAllFunctions()">Test All Functions</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const testTweet = "BREAKING: Scientists discover that drinking hot water with lemon cures all diseases! Doctors don't want you to know this secret!";
+        
+        function getApiKey() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                throw new Error('Please enter your Gemini API key first');
+            }
+            return apiKey;
+        }
+        
+        function showResults(content, isError = false) {
+            const results = document.getElementById('results');
+            results.innerHTML = `
+                <div class="results ${isError ? 'error' : 'success'}">
+                    <h3>${isError ? '❌ Error' : '✅ Success'}</h3>
+                    <pre>${content}</pre>
+                </div>
+            `;
+        }
+        
+        function showLoading() {
+            const results = document.getElementById('results');
+            results.innerHTML = `
+                <div class="results">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Testing API...</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function testHeadlineGeneration() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `You are a professional news editor. Create a concise, factual headline (maximum 10 words) that summarizes the main claim or statement in the given text. Focus on the most newsworthy or controversial claim.
+
+Create a headline for this tweet: "${testTweet}"`
+                            }]
+                        }],
+                        generationConfig: {
+                            maxOutputTokens: 50,
+                            temperature: 0.3
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const headline = data.candidates[0].content.parts[0].text.trim();
+                
+                showResults(`✅ Headline Generation Test Passed!\n\nGenerated Headline: "${headline}"\n\nAPI Response: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                showResults(`❌ Headline Generation Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        async function testClaimExtraction() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `Extract specific factual claims from the given text. Return only the claims as a JSON array of strings. Focus on verifiable statements, statistics, or assertions that can be fact-checked.
+
+Extract claims from: "${testTweet}"`
+                            }]
+                        }],
+                        generationConfig: {
+                            maxOutputTokens: 200,
+                            temperature: 0.1
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const claimsText = data.candidates[0].content.parts[0].text.trim();
+                
+                showResults(`✅ Claim Extraction Test Passed!\n\nExtracted Claims: ${claimsText}\n\nAPI Response: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                showResults(`❌ Claim Extraction Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        async function testFactChecking() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const mockSources = [
+                    { title: "Medical Research on Lemon Water", url: "https://example.com/lemon-water" },
+                    { title: "Health Claims Verification", url: "https://example.com/health-claims" }
+                ];
+                
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `You are a fact-checker. Analyze the given claim against the provided sources. Return a JSON object with:
+                                {
+                                    "claim": "the original claim",
+                                    "verdict": "TRUE/FALSE/UNCLEAR",
+                                    "confidence": 0-100,
+                                    "reasoning": "brief explanation"
+                                }
+                                
+                                Sources: ${JSON.stringify(mockSources)}`
+                            }]
+                        }],
+                        generationConfig: {
+                            maxOutputTokens: 300,
+                            temperature: 0.1
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const resultText = data.candidates[0].content.parts[0].text.trim();
+                
+                showResults(`✅ Fact Checking Test Passed!\n\nFact Check Result: ${resultText}\n\nAPI Response: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                showResults(`❌ Fact Checking Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        async function testAllFunctions() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                // Test all functions sequentially
+                await testHeadlineGeneration();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                await testClaimExtraction();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                await testFactChecking();
+                
+                showResults(`🎉 All Tests Completed Successfully!\n\nYour Gemini API integration is working perfectly!`);
+                
+            } catch (error) {
+                showResults(`❌ Test Suite Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Auto-focus on API key input
+        document.getElementById('apiKey').focus();
+    </script>
+</body>
+</html>
