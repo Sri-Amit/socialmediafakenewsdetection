@@ -270,6 +270,8 @@ async function analyzeIndividualClaims(claims, sources) {
 
 async function getFactCheckVerdict(claim, sources) {
     try {
+        console.log('Getting fact-check verdict for claim:', claim);
+        
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
@@ -278,15 +280,25 @@ async function getFactCheckVerdict(claim, sources) {
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `You are a fact-checker. Analyze the given claim against the provided sources. Return ONLY a JSON object with this exact format:
-                        {
-                            "verdict": "TRUE/FALSE/UNCLEAR",
-                            "confidence": 0-100,
-                            "reasoning": "brief explanation"
-                        }
-                        
-                        Claim to check: "${claim}"
-                        Available sources: ${JSON.stringify(sources)}`
+                        text: `You are a fact-checker. Analyze the given claim against the provided sources. 
+
+IMPORTANT: You must respond with ONLY a valid JSON object. No other text, explanations, or formatting.
+
+Required JSON format:
+{
+    "verdict": "TRUE",
+    "confidence": 85,
+    "reasoning": "This claim is supported by credible sources"
+}
+
+Valid verdicts: "TRUE", "FALSE", or "UNCLEAR"
+Confidence: integer from 0-100
+Reasoning: brief explanation in quotes
+
+Claim to check: "${claim}"
+Available sources: ${JSON.stringify(sources)}
+
+Respond with ONLY the JSON object:`
                     }]
                 }],
                 generationConfig: {
@@ -296,16 +308,34 @@ async function getFactCheckVerdict(claim, sources) {
             })
         });
 
+        console.log('Fact-check API response status:', response.status);
+
         if (!response.ok) {
             const errorText = await response.text();
+            console.error('Fact-check API error response:', errorText);
             throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
+        console.log('Fact-check API response data:', data);
+        
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+            throw new Error('Invalid response format from Gemini API');
+        }
+        
         const resultText = data.candidates[0].content.parts[0].text.trim();
+        console.log('Raw fact-check result text:', resultText);
         
         try {
+            // Try to parse as JSON
             const result = JSON.parse(resultText);
+            console.log('Successfully parsed JSON result:', result);
+            
+            // Validate the result structure
+            if (typeof result !== 'object' || result === null) {
+                throw new Error('Result is not an object');
+            }
+            
             return {
                 verdict: result.verdict || 'UNCLEAR',
                 confidence: result.confidence || 50,
@@ -313,10 +343,19 @@ async function getFactCheckVerdict(claim, sources) {
             };
         } catch (parseError) {
             console.error('JSON parse error for fact-check:', parseError);
+            console.error('Failed to parse result text:', resultText);
+            
+            // Try to extract information from malformed JSON
+            const extractedResult = extractFromMalformedJSON(resultText);
+            if (extractedResult) {
+                console.log('Successfully extracted from malformed JSON:', extractedResult);
+                return extractedResult;
+            }
+            
             return {
                 verdict: 'UNCLEAR',
                 confidence: 50,
-                reasoning: 'Analysis failed - invalid response format'
+                reasoning: `Analysis failed - invalid response format. Raw response: ${resultText.substring(0, 100)}...`
             };
         }
     } catch (error) {
@@ -324,8 +363,38 @@ async function getFactCheckVerdict(claim, sources) {
         return {
             verdict: 'UNCLEAR',
             confidence: 50,
-            reasoning: 'Fact-checking failed'
+            reasoning: `Fact-checking failed: ${error.message}`
         };
+    }
+}
+
+function extractFromMalformedJSON(text) {
+    try {
+        // Try to extract verdict
+        const verdictMatch = text.match(/"verdict"\s*:\s*"([^"]+)"/i);
+        const verdict = verdictMatch ? verdictMatch[1].toUpperCase() : null;
+        
+        // Try to extract confidence
+        const confidenceMatch = text.match(/"confidence"\s*:\s*(\d+)/i);
+        const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : null;
+        
+        // Try to extract reasoning
+        const reasoningMatch = text.match(/"reasoning"\s*:\s*"([^"]+)"/i);
+        const reasoning = reasoningMatch ? reasoningMatch[1] : null;
+        
+        // Validate verdict
+        if (verdict && ['TRUE', 'FALSE', 'UNCLEAR'].includes(verdict)) {
+            return {
+                verdict: verdict,
+                confidence: confidence && confidence >= 0 && confidence <= 100 ? confidence : 50,
+                reasoning: reasoning || 'Extracted from malformed response'
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error extracting from malformed JSON:', error);
+        return null;
     }
 }
 
