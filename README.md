@@ -4,7 +4,7 @@ A Chrome extension that analyzes Twitter posts for fake news detection using AI 
 
 ## Features
 
-- 🔍 **AI-Powered Analysis**: Uses Google Gemini to analyze tweet content
+- 🔍 **AI-Powered Analysis**: Uses Google Gemini 1.5 Flash to analyze tweet content
 - 📰 **Headline Generation**: Creates concise headlines summarizing tweet claims
 - 🎯 **Credibility Scoring**: Provides percentage-based credibility scores
 - 🔍 **Fact-Checking**: Extracts and verifies specific claims against credible sources
@@ -16,7 +16,7 @@ A Chrome extension that analyzes Twitter posts for fake news detection using AI 
 ## How It Works
 
 1. **Content Extraction**: Extracts tweet text from Twitter/X pages
-2. **AI Analysis**: Uses Google Gemini to generate headlines and extract claims
+2. **AI Analysis**: Uses Google Gemini 1.5 Flash to generate headlines and extract claims
 3. **Web Search**: Searches for credible news sources using SerpAPI
 4. **Fact-Checking**: Verifies claims against found sources
 5. **Scoring**: Calculates credibility score based on fact-check results

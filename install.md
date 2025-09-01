@@ -4,7 +4,7 @@
 
 ### Step 1: Get API Keys
 
-1. **Google Gemini API Key** (Required)
+1. **Google Gemini 1.5 Flash API Key** (Required)
    - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Sign in with your Google account
    - Click "Create API Key"
@@ -83,7 +83,7 @@
 
 ## API Usage Costs
 
-### Google Gemini Costs
+### Google Gemini 1.5 Flash Costs
 - **Free tier**: 15 requests per minute, 1500 requests per day
 - **Paid tier**: $0.0005 per 1K characters input, $0.0015 per 1K characters output
 - Typical analysis: 500-1000 characters
