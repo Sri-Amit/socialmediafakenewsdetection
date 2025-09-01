@@ -9,7 +9,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'analyzeTweet') {
         analyzeTweet(request.content)
             .then(result => sendResponse(result))
-            .catch(error => sendResponse({ success: false, error: error.message }));
+            .catch(error => {
+                console.error('Analysis error:', error);
+                sendResponse({ success: false, error: error.message });
+            });
         return true; // Keep the message channel open for async response
     }
 });
@@ -64,6 +67,8 @@ async function analyzeTweet(content) {
 
 async function generateHeadline(content) {
     try {
+        console.log('Generating headline for:', content);
+        
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
@@ -74,7 +79,9 @@ async function generateHeadline(content) {
                     parts: [{
                         text: `You are a professional news editor. Create a concise, factual headline (maximum 10 words) that summarizes the main claim or statement in the given text. Focus on the most newsworthy or controversial claim.
 
-Create a headline for this tweet: "${content}"`
+Create a headline for this tweet: "${content}"
+
+Return only the headline text, no quotes or formatting.`
                     }]
                 }],
                 generationConfig: {
@@ -84,20 +91,34 @@ Create a headline for this tweet: "${content}"`
             })
         });
 
+        console.log('Headline API response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error(`Gemini API error: ${response.status}`);
+            const errorText = await response.text();
+            console.error('Headline API error response:', errorText);
+            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
-        return data.candidates[0].content.parts[0].text.trim().replace(/^["']|["']$/g, '');
+        console.log('Headline API response data:', data);
+        
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+            throw new Error('Invalid response format from Gemini API');
+        }
+        
+        const headline = data.candidates[0].content.parts[0].text.trim().replace(/^["']|["']$/g, '');
+        console.log('Generated headline:', headline);
+        return headline;
     } catch (error) {
         console.error('Error generating headline:', error);
-        return 'Headline generation failed';
+        throw new Error(`Headline generation failed: ${error.message}`);
     }
 }
 
 async function extractClaims(content) {
     try {
+        console.log('Extracting claims from:', content);
+        
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
@@ -106,7 +127,9 @@ async function extractClaims(content) {
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `Extract specific factual claims from the given text. Return only the claims as a JSON array of strings. Focus on verifiable statements, statistics, or assertions that can be fact-checked.
+                        text: `Extract specific factual claims from the given text. Return ONLY a JSON array of strings, no other text.
+
+Example format: ["claim 1", "claim 2", "claim 3"]
 
 Extract claims from: "${content}"`
                     }]
@@ -118,22 +141,51 @@ Extract claims from: "${content}"`
             })
         });
 
+        console.log('Claims API response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error(`Gemini API error: ${response.status}`);
+            const errorText = await response.text();
+            console.error('Claims API error response:', errorText);
+            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
+        console.log('Claims API response data:', data);
+        
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+            throw new Error('Invalid response format from Gemini API');
+        }
+        
         const claimsText = data.candidates[0].content.parts[0].text.trim();
+        console.log('Raw claims text:', claimsText);
         
         try {
-            return JSON.parse(claimsText);
+            // Try to parse as JSON
+            const claims = JSON.parse(claimsText);
+            if (Array.isArray(claims)) {
+                return claims.filter(claim => claim.trim());
+            } else {
+                throw new Error('Claims response is not an array');
+            }
         } catch (parseError) {
-            // Fallback: split by lines or return the content as a single claim
-            return claimsText.split('\n').filter(claim => claim.trim());
+            console.error('JSON parse error:', parseError);
+            console.error('Failed to parse claims:', claimsText);
+            // Fallback: split by lines and clean up
+            const claims = claimsText.split('\n')
+                .map(line => line.trim())
+                .filter(line => line && !line.startsWith('[') && !line.startsWith(']') && !line.startsWith('"'))
+                .map(line => line.replace(/^["']|["']$/g, '').trim())
+                .filter(line => line.length > 0);
+            
+            if (claims.length === 0) {
+                // Last resort: return the original content as a single claim
+                return [content];
+            }
+            return claims;
         }
     } catch (error) {
         console.error('Error extracting claims:', error);
-        return [content]; // Return the original content as a single claim
+        throw new Error(`Claims extraction failed: ${error.message}`);
     }
 }
 
@@ -188,6 +240,8 @@ async function factCheckClaims(claims, sources) {
         for (const claim of claims) {
             if (!claim.trim()) continue;
             
+            console.log('Fact-checking claim:', claim);
+            
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
                 headers: {
@@ -196,15 +250,15 @@ async function factCheckClaims(claims, sources) {
                 body: JSON.stringify({
                     contents: [{
                         parts: [{
-                            text: `You are a fact-checker. Analyze the given claim against the provided sources. Return a JSON object with:
+                            text: `You are a fact-checker. Analyze the given claim against the provided sources. Return ONLY a JSON object with this exact format:
                             {
-                                "claim": "the original claim",
                                 "verdict": "TRUE/FALSE/UNCLEAR",
                                 "confidence": 0-100,
                                 "reasoning": "brief explanation"
                             }
                             
-                            Sources: ${JSON.stringify(sources)}`
+                            Claim to check: "${claim}"
+                            Available sources: ${JSON.stringify(sources)}`
                         }]
                     }],
                     generationConfig: {
@@ -214,12 +268,23 @@ async function factCheckClaims(claims, sources) {
                 })
             });
 
+            console.log('Fact-check API response status:', response.status);
+            
             if (!response.ok) {
-                throw new Error(`Gemini API error: ${response.status}`); // Changed to Gemini API error
+                const errorText = await response.text();
+                console.error('Fact-check API error response:', errorText);
+                throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
             }
 
             const data = await response.json();
+            console.log('Fact-check API response data:', data);
+            
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+                throw new Error('Invalid response format from Gemini API');
+            }
+            
             const resultText = data.candidates[0].content.parts[0].text.trim();
+            console.log('Raw fact-check result:', resultText);
             
             try {
                 const result = JSON.parse(resultText);
@@ -230,11 +295,13 @@ async function factCheckClaims(claims, sources) {
                     reasoning: result.reasoning || 'Unable to verify'
                 });
             } catch (parseError) {
+                console.error('JSON parse error for fact-check:', parseError);
+                console.error('Failed to parse:', resultText);
                 factChecks.push({
                     claim: claim,
                     verdict: 'UNCLEAR',
                     confidence: 50,
-                    reasoning: 'Analysis failed'
+                    reasoning: 'Analysis failed - invalid response format'
                 });
             }
         }
@@ -242,12 +309,7 @@ async function factCheckClaims(claims, sources) {
         return factChecks;
     } catch (error) {
         console.error('Error fact-checking claims:', error);
-        return claims.map(claim => ({
-            claim: claim,
-            verdict: 'UNCLEAR',
-            confidence: 50,
-            reasoning: 'Fact-checking failed'
-        }));
+        throw new Error(`Fact-checking failed: ${error.message}`);
     }
 }
 
@@ -287,6 +349,8 @@ function calculateCredibilityScore(factChecks, sources) {
 
 async function generateAnalysis(content, factChecks, sources, credibilityScore) {
     try {
+        console.log('Generating analysis for content:', content);
+        
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
@@ -301,7 +365,9 @@ Analyze this content: "${content}"
                         
                         Fact checks: ${JSON.stringify(factChecks)}
                         Credibility score: ${credibilityScore}%
-                        Sources found: ${sources.length}`
+                        Sources found: ${sources.length}
+
+Provide a clear, concise analysis.`
                     }]
                 }],
                 generationConfig: {
@@ -311,15 +377,27 @@ Analyze this content: "${content}"
             })
         });
 
+        console.log('Analysis API response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error(`Gemini API error: ${response.status}`); // Changed to Gemini API error
+            const errorText = await response.text();
+            console.error('Analysis API error response:', errorText);
+            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
-        return data.candidates[0].content.parts[0].text.trim();
+        console.log('Analysis API response data:', data);
+        
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+            throw new Error('Invalid response format from Gemini API');
+        }
+        
+        const analysis = data.candidates[0].content.parts[0].text.trim();
+        console.log('Generated analysis:', analysis);
+        return analysis;
     } catch (error) {
         console.error('Error generating analysis:', error);
-        return 'Analysis generation failed';
+        throw new Error(`Analysis generation failed: ${error.message}`);
     }
 }
 
