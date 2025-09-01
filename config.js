@@ -48,6 +48,8 @@ const config = {
         'newsweek.com',
         'theatlantic.com',
         'economist.com',
+        'espn.com',
+        'sports.yahoo.com',
         'scientificamerican.com',
         'nature.com',
         'science.org',
