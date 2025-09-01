@@ -33,24 +33,24 @@ async function analyzeTweet(content) {
         const sources = await searchCredibleSources(content);
         console.log('Found sources:', sources);
 
-        // Step 4: Fact-check claims against sources
-        const factChecks = await factCheckClaims(claims, sources);
-        console.log('Fact check results:', factChecks);
+        // Step 4: Analyze each claim individually with its own credibility score
+        const claimAnalyses = await analyzeIndividualClaims(claims, sources);
+        console.log('Individual claim analyses:', claimAnalyses);
 
-        // Step 5: Calculate credibility score
-        const credibilityScore = calculateCredibilityScore(factChecks, sources);
-        console.log('Credibility score:', credibilityScore);
+        // Step 5: Calculate overall tweet credibility as average of claim scores
+        const overallCredibility = calculateOverallCredibility(claimAnalyses);
+        console.log('Overall credibility score:', overallCredibility);
 
         // Step 6: Generate detailed analysis
-        const analysis = await generateAnalysis(content, factChecks, sources, credibilityScore);
+        const analysis = await generateAnalysis(content, claimAnalyses, sources, overallCredibility);
         console.log('Analysis generated');
 
         return {
             success: true,
             data: {
                 headline,
-                credibilityScore,
-                factChecks,
+                credibilityScore: overallCredibility,
+                factChecks: claimAnalyses,
                 sources,
                 analysis
             }
@@ -233,121 +233,145 @@ async function searchCredibleSources(content) {
     }
 }
 
-async function factCheckClaims(claims, sources) {
+async function analyzeIndividualClaims(claims, sources) {
     try {
-        const factChecks = [];
+        const claimAnalyses = [];
         
         for (const claim of claims) {
             if (!claim.trim()) continue;
             
-            console.log('Fact-checking claim:', claim);
+            console.log('Analyzing individual claim:', claim);
             
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `You are a fact-checker. Analyze the given claim against the provided sources. Return ONLY a JSON object with this exact format:
-                            {
-                                "verdict": "TRUE/FALSE/UNCLEAR",
-                                "confidence": 0-100,
-                                "reasoning": "brief explanation"
-                            }
-                            
-                            Claim to check: "${claim}"
-                            Available sources: ${JSON.stringify(sources)}`
-                        }]
-                    }],
-                    generationConfig: {
-                        maxOutputTokens: 300,
-                        temperature: 0.1
-                    }
-                })
+            // Step 1: Get fact-check verdict for the claim
+            const factCheck = await getFactCheckVerdict(claim, sources);
+            console.log('Fact-check result:', factCheck);
+            
+            // Step 2: Calculate individual claim credibility score
+            const claimCredibility = calculateClaimCredibility(factCheck, sources);
+            console.log('Claim credibility score:', claimCredibility);
+            
+            // Step 3: Store complete claim analysis
+            claimAnalyses.push({
+                claim: claim,
+                verdict: factCheck.verdict,
+                confidence: factCheck.confidence,
+                reasoning: factCheck.reasoning,
+                credibilityScore: claimCredibility,
+                sourcesUsed: sources.length > 0 ? sources.slice(0, 3) : [] // Limit to top 3 sources per claim
             });
-
-            console.log('Fact-check API response status:', response.status);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Fact-check API error response:', errorText);
-                throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-            }
-
-            const data = await response.json();
-            console.log('Fact-check API response data:', data);
-            
-            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-                throw new Error('Invalid response format from Gemini API');
-            }
-            
-            const resultText = data.candidates[0].content.parts[0].text.trim();
-            console.log('Raw fact-check result:', resultText);
-            
-            try {
-                const result = JSON.parse(resultText);
-                factChecks.push({
-                    claim: claim,
-                    verdict: result.verdict || 'UNCLEAR',
-                    confidence: result.confidence || 50,
-                    reasoning: result.reasoning || 'Unable to verify'
-                });
-            } catch (parseError) {
-                console.error('JSON parse error for fact-check:', parseError);
-                console.error('Failed to parse:', resultText);
-                factChecks.push({
-                    claim: claim,
-                    verdict: 'UNCLEAR',
-                    confidence: 50,
-                    reasoning: 'Analysis failed - invalid response format'
-                });
-            }
         }
         
-        return factChecks;
+        return claimAnalyses;
     } catch (error) {
-        console.error('Error fact-checking claims:', error);
-        throw new Error(`Fact-checking failed: ${error.message}`);
+        console.error('Error analyzing individual claims:', error);
+        throw new Error(`Individual claim analysis failed: ${error.message}`);
     }
 }
 
-function calculateCredibilityScore(factChecks, sources) {
-    if (factChecks.length === 0) {
-        return 50; // Neutral score if no claims to check
-    }
+async function getFactCheckVerdict(claim, sources) {
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: `You are a fact-checker. Analyze the given claim against the provided sources. Return ONLY a JSON object with this exact format:
+                        {
+                            "verdict": "TRUE/FALSE/UNCLEAR",
+                            "confidence": 0-100,
+                            "reasoning": "brief explanation"
+                        }
+                        
+                        Claim to check: "${claim}"
+                        Available sources: ${JSON.stringify(sources)}`
+                    }]
+                }],
+                generationConfig: {
+                    maxOutputTokens: 300,
+                    temperature: 0.1
+                }
+            })
+        });
 
-    let totalScore = 0;
-    let totalWeight = 0;
-
-    // Score based on fact check results
-    factChecks.forEach(check => {
-        let claimScore = 50; // Neutral starting point
-        
-        if (check.verdict === 'TRUE') {
-            claimScore = 80 + (check.confidence / 100) * 20; // 80-100 range
-        } else if (check.verdict === 'FALSE') {
-            claimScore = 20 - (check.confidence / 100) * 20; // 0-20 range
-        } else {
-            claimScore = 40 + (check.confidence / 100) * 20; // 40-60 range for unclear
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
         }
+
+        const data = await response.json();
+        const resultText = data.candidates[0].content.parts[0].text.trim();
         
-        totalScore += claimScore;
-        totalWeight += 1;
-    });
-
-    // Bonus for having credible sources
-    if (sources.length > 0) {
-        totalScore += Math.min(sources.length * 5, 20); // Up to 20 points bonus
-        totalWeight += 1;
+        try {
+            const result = JSON.parse(resultText);
+            return {
+                verdict: result.verdict || 'UNCLEAR',
+                confidence: result.confidence || 50,
+                reasoning: result.reasoning || 'Unable to verify'
+            };
+        } catch (parseError) {
+            console.error('JSON parse error for fact-check:', parseError);
+            return {
+                verdict: 'UNCLEAR',
+                confidence: 50,
+                reasoning: 'Analysis failed - invalid response format'
+            };
+        }
+    } catch (error) {
+        console.error('Error getting fact-check verdict:', error);
+        return {
+            verdict: 'UNCLEAR',
+            confidence: 50,
+            reasoning: 'Fact-checking failed'
+        };
     }
-
-    const finalScore = Math.round(totalScore / totalWeight);
-    return Math.max(0, Math.min(100, finalScore)); // Ensure score is between 0-100
 }
 
-async function generateAnalysis(content, factChecks, sources, credibilityScore) {
+function calculateClaimCredibility(factCheck, sources) {
+    let baseScore = 50; // Neutral starting point
+    
+    // Calculate base score based on verdict and confidence
+    if (factCheck.verdict === 'TRUE') {
+        baseScore = 80 + (factCheck.confidence / 100) * 20; // 80-100 range
+    } else if (factCheck.verdict === 'FALSE') {
+        baseScore = 20 - (factCheck.confidence / 100) * 20; // 0-20 range
+    } else {
+        baseScore = 40 + (factCheck.confidence / 100) * 20; // 40-60 range for unclear
+    }
+    
+    // Apply source bonus to this specific claim
+    let sourceBonus = 0;
+    if (sources.length > 0) {
+        // Each source adds a small bonus, but cap it to prevent over-inflation
+        sourceBonus = Math.min(sources.length * 2, 10); // Max 10 points bonus per claim
+    }
+    
+    // Calculate final claim score
+    const finalScore = baseScore + sourceBonus;
+    
+    // Ensure score stays within 0-100 range
+    return Math.max(0, Math.min(100, Math.round(finalScore)));
+}
+
+function calculateOverallCredibility(claimAnalyses) {
+    if (claimAnalyses.length === 0) {
+        return 50; // Neutral score if no claims to analyze
+    }
+    
+    // Calculate average of all individual claim credibility scores
+    const totalCredibility = claimAnalyses.reduce((sum, analysis) => {
+        return sum + analysis.credibilityScore;
+    }, 0);
+    
+    const averageCredibility = totalCredibility / claimAnalyses.length;
+    
+    // Return rounded score between 0-100
+    return Math.max(0, Math.min(100, Math.round(averageCredibility)));
+}
+
+async function generateAnalysis(content, claimAnalyses, sources, credibilityScore) {
     try {
         console.log('Generating analysis for content:', content);
         
@@ -359,19 +383,19 @@ async function generateAnalysis(content, factChecks, sources, credibilityScore) 
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `You are a fact-checking analyst. Provide a brief, objective analysis of the credibility of the given content based on the fact-check results and sources. Keep it under 100 words.
+                        text: `You are a fact-checking analyst. Provide a brief, objective analysis of the credibility of the given content based on the individual claim analyses and overall credibility score. Keep it under 150 words.
 
 Analyze this content: "${content}"
                         
-                        Fact checks: ${JSON.stringify(factChecks)}
-                        Credibility score: ${credibilityScore}%
-                        Sources found: ${sources.length}
+                        Individual Claim Analyses: ${JSON.stringify(claimAnalyses)}
+                        Overall Credibility Score: ${credibilityScore}%
+                        Total Sources Found: ${sources.length}
 
-Provide a clear, concise analysis.`
+Provide a clear, concise analysis that explains the overall credibility and highlights any notable individual claims.`
                     }]
                 }],
                 generationConfig: {
-                    maxOutputTokens: 150,
+                    maxOutputTokens: 200,
                     temperature: 0.3
                 }
             })

@@ -123,28 +123,68 @@ document.addEventListener('DOMContentLoaded', function() {
             scoreText.style.color = '#dc3545';
         }
 
-        // Display fact check results
+        // Display individual claim analyses with credibility scores
         const factCheckContainer = document.getElementById('factCheckResults');
         factCheckContainer.innerHTML = '';
         
         if (data.factChecks && data.factChecks.length > 0) {
-            data.factChecks.forEach(check => {
+            data.factChecks.forEach(claimAnalysis => {
                 const item = document.createElement('div');
                 item.className = 'fact-check-item';
                 
+                // Create claim header with verdict icon
+                const claimHeader = document.createElement('div');
+                claimHeader.className = 'claim-header';
+                
                 const icon = document.createElement('div');
-                icon.className = `fact-check-icon ${check.verdict.toLowerCase()}`;
-                icon.textContent = check.verdict === 'TRUE' ? '✓' : check.verdict === 'FALSE' ? '✗' : '?';
+                icon.className = `fact-check-icon ${claimAnalysis.verdict.toLowerCase()}`;
+                icon.textContent = claimAnalysis.verdict === 'TRUE' ? '✓' : claimAnalysis.verdict === 'FALSE' ? '✗' : '?';
                 
-                const text = document.createElement('span');
-                text.textContent = check.claim;
+                const claimText = document.createElement('span');
+                claimText.className = 'claim-text';
+                claimText.textContent = claimAnalysis.claim;
                 
-                item.appendChild(icon);
-                item.appendChild(text);
+                claimHeader.appendChild(icon);
+                claimHeader.appendChild(claimText);
+                item.appendChild(claimHeader);
+                
+                // Create credibility score display
+                const scoreDisplay = document.createElement('div');
+                scoreDisplay.className = 'claim-credibility';
+                
+                const scoreLabel = document.createElement('span');
+                scoreLabel.textContent = 'Credibility: ';
+                scoreLabel.className = 'score-label';
+                
+                const scoreValue = document.createElement('span');
+                scoreValue.textContent = `${claimAnalysis.credibilityScore}%`;
+                scoreValue.className = 'score-value';
+                
+                // Color code individual claim scores
+                if (claimAnalysis.credibilityScore >= 70) {
+                    scoreValue.style.color = '#28a745';
+                } else if (claimAnalysis.credibilityScore >= 40) {
+                    scoreValue.style.color = '#ffc107';
+                } else {
+                    scoreValue.style.color = '#dc3545';
+                }
+                
+                scoreDisplay.appendChild(scoreLabel);
+                scoreDisplay.appendChild(scoreValue);
+                item.appendChild(scoreDisplay);
+                
+                // Add reasoning if available
+                if (claimAnalysis.reasoning) {
+                    const reasoning = document.createElement('div');
+                    reasoning.className = 'claim-reasoning';
+                    reasoning.textContent = claimAnalysis.reasoning;
+                    item.appendChild(reasoning);
+                }
+                
                 factCheckContainer.appendChild(item);
             });
         } else {
-            factCheckContainer.innerHTML = '<p>No specific claims found to fact-check</p>';
+            factCheckContainer.innerHTML = '<p>No specific claims found to analyze</p>';
         }
 
         // Display analysis details
