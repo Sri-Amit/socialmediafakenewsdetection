@@ -2,7 +2,7 @@
 
 // API configuration
 const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY'; // Replace with your actual API key
-const SERPAPI_KEY = 'YOUR_SERPAPI_KEY'; // Replace with your actual API key
+const SERPAPI_KEY = '2dac97bf1929796a23e3babe9480e1a4e5e060cf9ee9a96a2582c001b7e23623'; // Replace with your actual API key
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
