@@ -823,7 +823,20 @@ Extract claims from: "${testTweet}"`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Fact-check: "Drinking lemon water cures diseases" with sources: ${JSON.stringify(mockSources)}` }] }],
+                    contents: [{ parts: [{ text: `You are a fact-checker. Analyze the given claim against the provided sources and return ONLY valid JSON.
+
+IMPORTANT: Return ONLY the JSON object, no additional text, markdown, or explanations.
+
+Required JSON format:
+{
+    "claim": "the original claim",
+    "verdict": "TRUE/FALSE/UNCLEAR",
+    "confidence": 0-100,
+    "reasoning": "brief explanation"
+}
+
+Claim to fact-check: "Drinking lemon water cures diseases"
+Sources: ${JSON.stringify(mockSources)}` }] }],
                     generationConfig: { maxOutputTokens: 300, temperature: 0.1 }
                 })
             });
@@ -831,7 +844,21 @@ Extract claims from: "${testTweet}"`
             if (response.ok) {
                 const data = await response.json();
                 const result = data.candidates[0].content.parts[0].text.trim();
-                return `✅ Fact check completed: ${result}`;
+                
+                // Try to parse as JSON
+                try {
+                    const parsed = JSON.parse(result);
+                    return `✅ Fact check completed: ${JSON.stringify(parsed)}`;
+                } catch (e) {
+                    // Try cleaning the response
+                    const cleaned = cleanJsonResponse(result);
+                    try {
+                        const parsed = JSON.parse(cleaned);
+                        return `✅ Fact check completed (after cleanup): ${JSON.stringify(cleaned)}`;
+                    } catch (e2) {
+                        return `⚠️ Fact check completed but JSON parsing failed: "${result}"`;
+                    }
+                }
             } else {
                 throw new Error(`Fact checking failed: ${response.status}`);
             }
@@ -842,7 +869,12 @@ Extract claims from: "${testTweet}"`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: "Return JSON: {\"test\": \"value\"}" }] }],
+                    contents: [{ parts: [{ text: `You are a JSON generator. Return ONLY valid JSON without any additional text, markdown, or formatting.
+
+Example input: "test value"
+Example output: {"test": "value"}
+
+Now return JSON for: "test value"` }] }],
                     generationConfig: { maxOutputTokens: 100, temperature: 0.1 }
                 })
             });
@@ -855,7 +887,14 @@ Extract claims from: "${testTweet}"`
                     JSON.parse(text);
                     return "✅ JSON parsing: OK";
                 } catch (e) {
-                    return "⚠️ JSON parsing: Failed (but API response OK)";
+                    // Try to clean up the response and parse again
+                    const cleanedText = cleanJsonResponse(text);
+                    try {
+                        JSON.parse(cleanedText);
+                        return "✅ JSON parsing: OK (after cleanup)";
+                    } catch (e2) {
+                        return `⚠️ JSON parsing: Failed - Raw response: "${text}"`;
+                    }
                 }
             } else {
                 throw new Error(`Response parsing test failed: ${response.status}`);
@@ -961,7 +1000,13 @@ Extract claims from: "${testTweet}"`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Extract claims from: "${content}"` }] }],
+                    contents: [{ parts: [{ text: `Extract specific factual claims from the given text and return ONLY valid JSON.
+
+IMPORTANT: Return ONLY the JSON array, no additional text, markdown, or explanations.
+
+Required JSON format: ["claim1", "claim2", "claim3"]
+
+Text to analyze: "${content}"` }] }],
                     generationConfig: { maxOutputTokens: 200, temperature: 0.1 }
                 })
             });
@@ -976,7 +1021,14 @@ Extract claims from: "${testTweet}"`
             try {
                 return JSON.parse(claimsText);
             } catch (e) {
-                return claimsText.split('\n').filter(claim => claim.trim());
+                // Try cleaning the response
+                const cleaned = cleanJsonResponse(claimsText);
+                try {
+                    return JSON.parse(cleaned);
+                } catch (e2) {
+                    // Fallback: split by lines or return the content as a single claim
+                    return claimsText.split('\n').filter(claim => claim.trim());
+                }
             }
         }
         
@@ -986,7 +1038,20 @@ Extract claims from: "${testTweet}"`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Fact-check: "${content}" with sources: ${JSON.stringify(mockSources)}` }] }],
+                    contents: [{ parts: [{ text: `You are a fact-checker. Analyze the given claim against the provided sources and return ONLY valid JSON.
+
+IMPORTANT: Return ONLY the JSON object, no additional text, markdown, or explanations.
+
+Required JSON format:
+{
+    "claim": "the original claim",
+    "verdict": "TRUE/FALSE/UNCLEAR",
+    "confidence": 0-100,
+    "reasoning": "brief explanation"
+}
+
+Claim to fact-check: "${content}"
+Sources: ${JSON.stringify(mockSources)}` }] }],
                     generationConfig: { maxOutputTokens: 300, temperature: 0.1 }
                 })
             });
@@ -1000,8 +1065,14 @@ Extract claims from: "${testTweet}"`
             
             try {
                 return JSON.parse(resultText);
-            } catch (e) {
-                return { verdict: 'UNCLEAR', confidence: 50, reasoning: 'Parsing failed' };
+                } catch (e) {
+                // Try cleaning the response
+                const cleaned = cleanJsonResponse(resultText);
+                try {
+                    return JSON.parse(cleaned);
+                } catch (e2) {
+                    return { verdict: 'UNCLEAR', confidence: 50, reasoning: 'Parsing failed' };
+                }
             }
         }
         
@@ -1010,7 +1081,20 @@ Extract claims from: "${testTweet}"`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Fact-check: "${claim}" with sources: ${JSON.stringify(sources)}` }] }],
+                    contents: [{ parts: [{ text: `You are a fact-checker. Analyze the given claim against the provided sources and return ONLY valid JSON.
+
+IMPORTANT: Return ONLY the JSON object, no additional text, markdown, or explanations.
+
+Required JSON format:
+{
+    "claim": "the original claim",
+    "verdict": "TRUE/FALSE/UNCLEAR",
+    "confidence": 0-100,
+    "reasoning": "brief explanation"
+}
+
+Claim to fact-check: "${claim}"
+Sources: ${JSON.stringify(sources)}` }] }],
                     generationConfig: { maxOutputTokens: 300, temperature: 0.1 }
                 })
             });
@@ -1025,7 +1109,13 @@ Extract claims from: "${testTweet}"`
             try {
                 return JSON.parse(resultText);
             } catch (e) {
-                return { verdict: 'UNCLEAR', confidence: 50, reasoning: 'Parsing failed' };
+                // Try cleaning the response
+                const cleaned = cleanJsonResponse(resultText);
+                try {
+                    return JSON.parse(cleaned);
+                } catch (e2) {
+                    return { verdict: 'UNCLEAR', confidence: 50, reasoning: 'Parsing failed' };
+                }
             }
         }
         
@@ -1069,6 +1159,35 @@ Extract claims from: "${testTweet}"`
             }
             
             return Math.round(totalScore / totalWeight);
+        }
+        
+        // Helper function to clean up JSON responses from Gemini
+        function cleanJsonResponse(text) {
+            // Remove markdown code blocks
+            text = text.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+            
+            // Remove any text before the first {
+            const firstBrace = text.indexOf('{');
+            if (firstBrace > 0) {
+                text = text.substring(firstBrace);
+            }
+            
+            // Remove any text after the last }
+            const lastBrace = text.lastIndexOf('}');
+            if (lastBrace > 0 && lastBrace < text.length - 1) {
+                text = text.substring(0, lastBrace + 1);
+            }
+            
+            // Remove common prefixes/suffixes
+            text = text.replace(/^Here's the JSON:\s*/i, '');
+            text = text.replace(/^The JSON response is:\s*/i, '');
+            text = text.replace(/^JSON:\s*/i, '');
+            text = text.replace(/^Response:\s*/i, '');
+            
+            // Clean up any remaining whitespace
+            text = text.trim();
+            
+            return text;
         }
     </script>
 </body>
