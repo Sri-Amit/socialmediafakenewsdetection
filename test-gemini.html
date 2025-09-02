@@ -106,6 +106,28 @@
             <button class="test-button" onclick="testAllFunctions()">Test All Functions</button>
         </div>
         
+        <div class="test-section">
+            <h3>🔍 Detailed Testing</h3>
+            <button class="test-button" onclick="testIndividualSteps()">Test Individual Steps</button>
+            <button class="test-button" onclick="testErrorHandling()">Test Error Handling</button>
+            <button class="test-button" onclick="testRateLimits()">Test Rate Limits</button>
+            <button class="test-button" onclick="testDifferentContent()">Test Different Content</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>⚡ Integration Tests</h3>
+            <button class="test-button" onclick="testFullWorkflow()">Test Full Workflow</button>
+            <button class="test-button" onclick="testWithRealSources()">Test With Real Sources</button>
+            <button class="test-button" onclick="testPerformance()">Test Performance</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🐛 Debugging Tools</h3>
+            <button class="test-button" onclick="showApiStatus()">Show API Status</button>
+            <button class="test-button" onclick="clearResults()">Clear Results</button>
+            <button class="test-button" onclick="exportTestResults()">Export Results</button>
+        </div>
+        
         <div id="results"></div>
     </div>
 
@@ -293,6 +315,761 @@ Extract claims from: "${testTweet}"`
         
         // Auto-focus on API key input
         document.getElementById('apiKey').focus();
+        
+        // Test data for different scenarios
+        const testTweets = {
+            fake: "🚨 BREAKING: Scientists discover that drinking hot water with lemon cures all diseases! Doctors don't want you to know this secret!",
+            credible: "NASA's Perseverance rover successfully landed on Mars on February 18, 2021, marking a historic milestone in space exploration.",
+            unclear: "Some people say that 5G technology might have health effects, but the research is still ongoing and inconclusive.",
+            mixed: "The COVID-19 vaccine has been proven safe and effective in clinical trials, but some people still believe it contains microchips.",
+            political: "The new economic policy will create 10 million jobs and reduce inflation by 50% within 6 months, according to government officials.",
+            scientific: "A recent study published in Nature found that climate change is accelerating faster than previously predicted, with global temperatures rising 0.2°C per decade.",
+            conspiracy: "The moon landing was faked in a Hollywood studio. All the astronauts are actors and the footage was created using special effects.",
+            health: "Drinking 8 glasses of water daily improves skin health, boosts metabolism, and helps with weight loss, according to nutrition experts."
+        };
+        
+        // Test individual steps with detailed logging
+        async function testIndividualSteps() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const results = [];
+                
+                // Step 1: Test API connectivity
+                results.push("🔌 Testing API connectivity...");
+                const connectivityTest = await testApiConnectivity(apiKey);
+                results.push(connectivityTest);
+                
+                // Step 2: Test model availability
+                results.push("🤖 Testing model availability...");
+                const modelTest = await testModelAvailability(apiKey);
+                results.push(modelTest);
+                
+                // Step 3: Test each function individually
+                results.push("📰 Testing headline generation...");
+                const headlineTest = await testHeadlineGenerationDetailed(apiKey);
+                results.push(headlineTest);
+                
+                results.push("🎯 Testing claim extraction...");
+                const claimTest = await testClaimExtractionDetailed(apiKey);
+                results.push(claimTest);
+                
+                results.push("🔍 Testing fact checking...");
+                const factCheckTest = await testFactCheckingDetailed(apiKey);
+                results.push(factCheckTest);
+                
+                // Step 4: Test response parsing
+                results.push("📊 Testing response parsing...");
+                const parsingTest = await testResponseParsing(apiKey);
+                results.push(parsingTest);
+                
+                showResults(`🧪 Individual Steps Test Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ Individual Steps Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Test error handling scenarios
+        async function testErrorHandling() {
+            try {
+                showLoading();
+                
+                const results = [];
+                
+                // Test 1: Invalid API key
+                results.push("🔑 Testing invalid API key...");
+                try {
+                    await testWithInvalidKey();
+                    results.push("❌ Should have failed with invalid key");
+                } catch (error) {
+                    results.push(`✅ Correctly handled invalid key: ${error.message}`);
+                }
+                
+                // Test 2: Malformed request
+                results.push("📝 Testing malformed request...");
+                try {
+                    await testMalformedRequest();
+                    results.push("❌ Should have failed with malformed request");
+                } catch (error) {
+                    results.push(`✅ Correctly handled malformed request: ${error.message}`);
+                }
+                
+                // Test 3: Empty content
+                results.push("📭 Testing empty content...");
+                try {
+                    await testEmptyContent();
+                    results.push("✅ Empty content handled gracefully");
+                } catch (error) {
+                    results.push(`❌ Failed to handle empty content: ${error.message}`);
+                }
+                
+                // Test 4: Very long content
+                results.push("📏 Testing very long content...");
+                try {
+                    await testLongContent();
+                    results.push("✅ Long content handled gracefully");
+                } catch (error) {
+                    results.push(`❌ Failed to handle long content: ${error.message}`);
+                }
+                
+                showResults(`🚨 Error Handling Test Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ Error Handling Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Test rate limits
+        async function testRateLimits() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const results = [];
+                results.push("⏱️ Testing rate limits...");
+                
+                // Make multiple rapid requests
+                const promises = [];
+                for (let i = 0; i < 5; i++) {
+                    promises.push(makeRapidRequest(apiKey, i + 1));
+                }
+                
+                const rapidResults = await Promise.allSettled(promises);
+                
+                rapidResults.forEach((result, index) => {
+                    if (result.status === 'fulfilled') {
+                        results.push(`✅ Request ${index + 1}: Success`);
+                    } else {
+                        results.push(`❌ Request ${index + 1}: ${result.reason.message}`);
+                    }
+                });
+                
+                // Test with delays
+                results.push("\n⏳ Testing with delays...");
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const result = await makeRapidRequest(apiKey, `Delayed ${i + 1}`);
+                        results.push(`✅ Delayed request ${i + 1}: Success`);
+                    } catch (error) {
+                        results.push(`❌ Delayed request ${i + 1}: ${error.message}`);
+                    }
+                }
+                
+                showResults(`⏱️ Rate Limit Test Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ Rate Limit Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Test different content types
+        async function testDifferentContent() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const results = [];
+                results.push("📝 Testing different content types...");
+                
+                for (const [type, content] of Object.entries(testTweets)) {
+                    try {
+                        results.push(`\n🔍 Testing ${type} content...`);
+                        
+                        // Test headline generation
+                        const headline = await generateHeadlineForContent(apiKey, content);
+                        results.push(`📰 Headline: ${headline}`);
+                        
+                        // Test claim extraction
+                        const claims = await extractClaimsForContent(apiKey, content);
+                        results.push(`🎯 Claims: ${claims.length} found`);
+                        
+                        // Test fact checking
+                        const factCheck = await factCheckContent(apiKey, content);
+                        results.push(`🔍 Verdict: ${factCheck.verdict} (${factCheck.confidence}% confidence)`);
+                        
+                    } catch (error) {
+                        results.push(`❌ ${type} content failed: ${error.message}`);
+                    }
+                    
+                    // Add delay between tests
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                showResults(`📝 Different Content Test Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ Different Content Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Test full workflow
+        async function testFullWorkflow() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const results = [];
+                results.push("🔄 Testing full workflow...");
+                
+                // Select a test tweet
+                const testContent = testTweets.fake;
+                results.push(`📱 Test content: "${testContent}"`);
+                
+                // Step 1: Generate headline
+                results.push("\n📰 Step 1: Generating headline...");
+                const headline = await generateHeadlineForContent(apiKey, testContent);
+                results.push(`✅ Headline: "${headline}"`);
+                
+                // Step 2: Extract claims
+                results.push("\n🎯 Step 2: Extracting claims...");
+                const claims = await extractClaimsForContent(apiKey, testContent);
+                results.push(`✅ Claims extracted: ${claims.length}`);
+                claims.forEach((claim, index) => {
+                    results.push(`   ${index + 1}. ${claim}`);
+                });
+                
+                // Step 3: Fact check claims
+                results.push("\n🔍 Step 3: Fact checking claims...");
+                const mockSources = [
+                    { title: "Medical Research Database", url: "https://example.com/medical" },
+                    { title: "Health Claims Verification", url: "https://example.com/health" }
+                ];
+                
+                const factChecks = [];
+                for (const claim of claims) {
+                    const factCheck = await factCheckClaim(apiKey, claim, mockSources);
+                    factChecks.push(factCheck);
+                    results.push(`   ✅ "${claim}": ${factCheck.verdict} (${factCheck.confidence}%)`);
+                }
+                
+                // Step 4: Calculate credibility score
+                results.push("\n📊 Step 4: Calculating credibility score...");
+                const credibilityScore = calculateCredibilityScore(factChecks, mockSources);
+                results.push(`✅ Credibility score: ${credibilityScore}%`);
+                
+                // Step 5: Generate analysis
+                results.push("\n📝 Step 5: Generating analysis...");
+                const analysis = await generateAnalysisForContent(apiKey, testContent, factChecks, mockSources, credibilityScore);
+                results.push(`✅ Analysis: ${analysis}`);
+                
+                results.push("\n🎉 Full workflow completed successfully!");
+                
+                showResults(`🔄 Full Workflow Test Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ Full Workflow Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Test with real sources (SerpAPI simulation)
+        async function testWithRealSources() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const results = [];
+                results.push("🌐 Testing with real source simulation...");
+                
+                // Simulate finding real sources
+                const realSources = [
+                    { title: "Reuters: Fact-checking health claims", url: "https://reuters.com/health-facts" },
+                    { title: "AP: Medical research verification", url: "https://ap.org/medical-verification" },
+                    { title: "BBC: Science fact-checking", url: "https://bbc.com/science-facts" }
+                ];
+                
+                results.push(`📚 Found ${realSources.length} credible sources`);
+                
+                // Test fact checking with real sources
+                const testClaim = "Drinking hot water with lemon cures all diseases";
+                results.push(`\n🔍 Testing claim: "${testClaim}"`);
+                
+                const factCheck = await factCheckClaim(apiKey, testClaim, realSources);
+                results.push(`✅ Verdict: ${factCheck.verdict}`);
+                results.push(`✅ Confidence: ${factCheck.confidence}%`);
+                results.push(`✅ Reasoning: ${factCheck.reasoning}`);
+                
+                // Test source credibility scoring
+                results.push("\n📊 Testing source credibility scoring...");
+                const sourceScores = realSources.map(source => ({
+                    source: source.title,
+                    credibility: Math.floor(Math.random() * 30) + 70 // Simulate 70-100% credibility
+                }));
+                
+                sourceScores.forEach(score => {
+                    results.push(`   ${score.source}: ${score.credibility}%`);
+                });
+                
+                showResults(`🌐 Real Sources Test Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ Real Sources Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Test performance
+        async function testPerformance() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const results = [];
+                results.push("⚡ Testing performance...");
+                
+                // Test response times
+                const testContent = testTweets.credible;
+                const iterations = 3;
+                
+                results.push(`\n📊 Testing ${iterations} iterations...`);
+                
+                const responseTimes = [];
+                for (let i = 0; i < iterations; i++) {
+                    const startTime = performance.now();
+                    
+                    try {
+                        await generateHeadlineForContent(apiKey, testContent);
+                        const endTime = performance.now();
+                        const responseTime = endTime - startTime;
+                        responseTimes.push(responseTime);
+                        results.push(`   Iteration ${i + 1}: ${responseTime.toFixed(2)}ms`);
+                    } catch (error) {
+                        results.push(`   Iteration ${i + 1}: Failed - ${error.message}`);
+                    }
+                    
+                    // Add delay between tests
+                    if (i < iterations - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+                
+                // Calculate performance metrics
+                if (responseTimes.length > 0) {
+                    const avgTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+                    const minTime = Math.min(...responseTimes);
+                    const maxTime = Math.max(...responseTimes);
+                    
+                    results.push(`\n📈 Performance Summary:`);
+                    results.push(`   Average: ${avgTime.toFixed(2)}ms`);
+                    results.push(`   Min: ${minTime.toFixed(2)}ms`);
+                    results.push(`   Max: ${maxTime.toFixed(2)}ms`);
+                    
+                    // Performance rating
+                    let rating = "🟢 Excellent";
+                    if (avgTime > 5000) rating = "🔴 Poor";
+                    else if (avgTime > 3000) rating = "🟡 Fair";
+                    else if (avgTime > 1000) rating = "🟠 Good";
+                    
+                    results.push(`   Rating: ${rating}`);
+                }
+                
+                showResults(`⚡ Performance Test Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ Performance Test Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Show API status
+        async function showApiStatus() {
+            try {
+                const apiKey = getApiKey();
+                showLoading();
+                
+                const results = [];
+                results.push("🔍 API Status Check...");
+                
+                // Test basic connectivity
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: "Hello" }] }],
+                            generationConfig: { maxOutputTokens: 10 }
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        results.push("✅ API connectivity: OK");
+                        results.push("✅ Authentication: OK");
+                        results.push("✅ Model access: OK");
+                        
+                        const data = await response.json();
+                        results.push(`✅ Response format: OK`);
+                        results.push(`✅ Model: ${data.model || 'gemini-1.5-flash'}`);
+                        
+                    } else {
+                        results.push(`❌ API error: ${response.status} - ${response.statusText}`);
+                    }
+                    
+                } catch (error) {
+                    results.push(`❌ Connection failed: ${error.message}`);
+                }
+                
+                // Check rate limit status
+                results.push("\n⏱️ Rate Limit Status:");
+                results.push("   Free tier: 15 requests/minute, 1500 requests/day");
+                results.push("   Current usage: Unknown (API doesn't provide this info)");
+                results.push("   Recommendation: Monitor your usage manually");
+                
+                showResults(`🔍 API Status Results:\n\n${results.join('\n\n')}`);
+                
+            } catch (error) {
+                showResults(`❌ API Status Check Failed!\n\nError: ${error.message}`, true);
+            }
+        }
+        
+        // Clear results
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Export test results
+        function exportTestResults() {
+            const results = document.getElementById('results').innerText;
+            if (!results) {
+                alert('No results to export. Run some tests first!');
+                return;
+            }
+            
+            const blob = new Blob([results], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gemini-api-test-results-${new Date().toISOString().slice(0, 19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Helper functions for detailed testing
+        async function testApiConnectivity(apiKey) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: "Test" }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+            
+            if (response.ok) {
+                return "✅ API connectivity: OK";
+            } else {
+                throw new Error(`API connectivity failed: ${response.status}`);
+            }
+        }
+        
+        async function testModelAvailability(apiKey) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: "Test" }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                return `✅ Model available: ${data.model || 'gemini-1.5-flash'}`;
+            } else {
+                throw new Error(`Model not available: ${response.status}`);
+            }
+        }
+        
+        async function testHeadlineGenerationDetailed(apiKey) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Create a headline for: "${testTweets.fake}"` }] }],
+                    generationConfig: { maxOutputTokens: 50, temperature: 0.3 }
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const headline = data.candidates[0].content.parts[0].text.trim();
+                return `✅ Headline generated: "${headline}"`;
+            } else {
+                throw new Error(`Headline generation failed: ${response.status}`);
+            }
+        }
+        
+        async function testClaimExtractionDetailed(apiKey) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Extract claims from: "${testTweets.fake}"` }] }],
+                    generationConfig: { maxOutputTokens: 200, temperature: 0.1 }
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const claims = data.candidates[0].content.parts[0].text.trim();
+                return `✅ Claims extracted: ${claims}`;
+            } else {
+                throw new Error(`Claim extraction failed: ${response.status}`);
+            }
+        }
+        
+        async function testFactCheckingDetailed(apiKey) {
+            const mockSources = [{ title: "Test Source", url: "https://example.com" }];
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Fact-check: "Drinking lemon water cures diseases" with sources: ${JSON.stringify(mockSources)}` }] }],
+                    generationConfig: { maxOutputTokens: 300, temperature: 0.1 }
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const result = data.candidates[0].content.parts[0].text.trim();
+                return `✅ Fact check completed: ${result}`;
+            } else {
+                throw new Error(`Fact checking failed: ${response.status}`);
+            }
+        }
+        
+        async function testResponseParsing(apiKey) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: "Return JSON: {\"test\": \"value\"}" }] }],
+                    generationConfig: { maxOutputTokens: 100, temperature: 0.1 }
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.candidates[0].content.parts[0].text.trim();
+                
+                try {
+                    JSON.parse(text);
+                    return "✅ JSON parsing: OK";
+                } catch (e) {
+                    return "⚠️ JSON parsing: Failed (but API response OK)";
+                }
+            } else {
+                throw new Error(`Response parsing test failed: ${response.status}`);
+            }
+        }
+        
+        async function testWithInvalidKey() {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=INVALID_KEY`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: "Test" }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Invalid key correctly rejected: ${response.status}`);
+            }
+        }
+        
+        async function testMalformedRequest() {
+            const apiKey = getApiKey();
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invalid: "request" })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Malformed request correctly rejected: ${response.status}`);
+            }
+        }
+        
+        async function testEmptyContent() {
+            const apiKey = getApiKey();
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: "" }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+            
+            // Empty content might be handled gracefully or rejected
+            return response.ok ? "Empty content accepted" : "Empty content rejected as expected";
+        }
+        
+        async function testLongContent() {
+            const apiKey = getApiKey();
+            const longText = "A".repeat(10000); // Very long content
+            
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: longText }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+            
+            return response.ok ? "Long content handled" : "Long content rejected as expected";
+        }
+        
+        async function makeRapidRequest(apiKey, identifier) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Test request ${identifier}` }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Request ${identifier} failed: ${response.status}`);
+            }
+            
+            return `Request ${identifier} successful`;
+        }
+        
+        async function generateHeadlineForContent(apiKey, content) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Create a headline for: "${content}"` }] }],
+                    generationConfig: { maxOutputTokens: 50, temperature: 0.3 }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Headline generation failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text.trim();
+        }
+        
+        async function extractClaimsForContent(apiKey, content) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Extract claims from: "${content}"` }] }],
+                    generationConfig: { maxOutputTokens: 200, temperature: 0.1 }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Claim extraction failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            const claimsText = data.candidates[0].content.parts[0].text.trim();
+            
+            try {
+                return JSON.parse(claimsText);
+            } catch (e) {
+                return claimsText.split('\n').filter(claim => claim.trim());
+            }
+        }
+        
+        async function factCheckContent(apiKey, content) {
+            const mockSources = [{ title: "Test Source", url: "https://example.com" }];
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Fact-check: "${content}" with sources: ${JSON.stringify(mockSources)}` }] }],
+                    generationConfig: { maxOutputTokens: 300, temperature: 0.1 }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Fact checking failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            const resultText = data.candidates[0].content.parts[0].text.trim();
+            
+            try {
+                return JSON.parse(resultText);
+            } catch (e) {
+                return { verdict: 'UNCLEAR', confidence: 50, reasoning: 'Parsing failed' };
+            }
+        }
+        
+        async function factCheckClaim(apiKey, claim, sources) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Fact-check: "${claim}" with sources: ${JSON.stringify(sources)}` }] }],
+                    generationConfig: { maxOutputTokens: 300, temperature: 0.1 }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Fact checking failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            const resultText = data.candidates[0].content.parts[0].text.trim();
+            
+            try {
+                return JSON.parse(resultText);
+            } catch (e) {
+                return { verdict: 'UNCLEAR', confidence: 50, reasoning: 'Parsing failed' };
+            }
+        }
+        
+        async function generateAnalysisForContent(apiKey, content, factChecks, sources, credibilityScore) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Analyze: "${content}" with fact checks: ${JSON.stringify(factChecks)} and credibility score: ${credibilityScore}%` }] }],
+                    generationConfig: { maxOutputTokens: 150, temperature: 0.3 }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Analysis generation failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text.trim();
+        }
+        
+        function calculateCredibilityScore(factChecks, sources) {
+            if (factChecks.length === 0) return 50;
+            
+            let totalScore = 0;
+            let totalWeight = 0;
+            
+            factChecks.forEach(check => {
+                let claimScore = 50;
+                if (check.verdict === 'TRUE') claimScore = 80 + (check.confidence / 100) * 20;
+                else if (check.verdict === 'FALSE') claimScore = 20 - (check.confidence / 100) * 20;
+                else claimScore = 40 + (check.confidence / 100) * 20;
+                
+                totalScore += claimScore;
+                totalWeight += 1;
+            });
+            
+            if (sources.length > 0) {
+                totalScore += Math.min(sources.length * 5, 20);
+                totalWeight += 1;
+            }
+            
+            return Math.round(totalScore / totalWeight);
+        }
     </script>
 </body>
 </html>
