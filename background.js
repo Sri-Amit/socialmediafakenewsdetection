@@ -124,21 +124,23 @@ async function extractClaims(content) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `Extract specific factual claims from the given text. Return ONLY a JSON array of strings, no other text.
+                            body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: `You are a claim extractor. Extract specific factual claims from the given text and return ONLY valid JSON.
 
-Example format: ["claim 1", "claim 2", "claim 3"]
+IMPORTANT: Return ONLY the JSON array, no additional text, markdown, or explanations.
 
-Extract claims from: "${content}"`
-                    }]
-                }],
-                generationConfig: {
-                    maxOutputTokens: 200,
-                    temperature: 0.1
-                }
-            })
+Required JSON format: ["claim1", "claim2", "claim3"]
+
+Text to analyze: "${content}"`
+                        }]
+                    }],
+                    generationConfig: {
+                        maxOutputTokens: 200,
+                        temperature: 0.1
+                    }
+                })
         });
 
         console.log('Claims API response status:', response.status);
@@ -170,6 +172,18 @@ Extract claims from: "${content}"`
         } catch (parseError) {
             console.error('JSON parse error:', parseError);
             console.error('Failed to parse claims:', claimsText);
+            
+            // Try to clean up the response and parse again
+            const cleanedText = cleanJsonResponse(claimsText);
+            try {
+                const claims = JSON.parse(cleanedText);
+                if (Array.isArray(claims)) {
+                    return claims.filter(claim => claim.trim());
+                }
+            } catch (secondParseError) {
+                console.error('Second JSON parse attempt failed:', secondParseError);
+            }
+            
             // Fallback: split by lines and clean up
             const claims = claimsText.split('\n')
                 .map(line => line.trim())
@@ -238,8 +252,11 @@ async function analyzeContentSubject(content) {
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `Analyze the given content and determine its primary subject matter and context. Return ONLY a JSON object with this exact format:
+                        text: `You are a content analyzer. Analyze the given content and determine its primary subject matter and context. Return ONLY valid JSON.
 
+IMPORTANT: Return ONLY the JSON object, no additional text, markdown, or explanations.
+
+Required JSON format:
 {
     "primarySubject": "POLITICS/SPORTS/SCIENCE/HEALTH/BUSINESS/TECHNOLOGY/ENTERTAINMENT/INTERNATIONAL/ENVIRONMENT/EDUCATION/OTHER",
     "secondarySubjects": ["subject1", "subject2"],
@@ -249,9 +266,7 @@ async function analyzeContentSubject(content) {
     "confidence": 0-100
 }
 
-Analyze this content: "${content}"
-
-Respond with ONLY the JSON object:`
+Content to analyze: "${content}"`
                     }]
                 }],
                 generationConfig: {
@@ -281,8 +296,24 @@ Respond with ONLY the JSON object:`
             };
         } catch (parseError) {
             console.error('JSON parse error for content analysis:', parseError);
-            // Fallback: basic content analysis
-            return analyzeContentFallback(content);
+            
+            // Try to clean up the response and parse again
+            const cleanedText = cleanJsonResponse(resultText);
+            try {
+                const result = JSON.parse(cleanedText);
+                return {
+                    primarySubject: result.primarySubject || 'OTHER',
+                    secondarySubjects: result.secondarySubjects || [],
+                    geographicScope: result.geographicScope || 'NATIONAL',
+                    temporalContext: result.temporalContext || 'CURRENT_EVENT',
+                    credibilityFactors: result.credibilityFactors || [],
+                    confidence: result.confidence || 50
+                };
+            } catch (secondParseError) {
+                console.error('Second JSON parse attempt failed:', secondParseError);
+                // Fallback: basic content analysis
+                return analyzeContentFallback(content);
+            }
         }
     } catch (error) {
         console.error('Error analyzing content subject:', error);
@@ -582,6 +613,23 @@ Respond with ONLY the JSON object:`
             console.error('JSON parse error for fact-check:', parseError);
             console.error('Failed to parse result text:', resultText);
             
+            // Try to clean up the response and parse again
+            const cleanedText = cleanJsonResponse(resultText);
+            try {
+                const result = JSON.parse(cleanedText);
+                console.log('Successfully parsed cleaned JSON result:', result);
+                
+                if (typeof result === 'object' && result !== null) {
+                    return {
+                        verdict: result.verdict || 'UNCLEAR',
+                        confidence: result.confidence || 50,
+                        reasoning: result.reasoning || 'Unable to verify'
+                    };
+                }
+            } catch (secondParseError) {
+                console.error('Second JSON parse attempt failed:', secondParseError);
+            }
+            
             // Try to extract information from malformed JSON
             const extractedResult = extractFromMalformedJSON(resultText);
             if (extractedResult) {
@@ -730,6 +778,37 @@ Provide a clear, concise analysis that explains the overall credibility and high
         console.error('Error generating analysis:', error);
         throw new Error(`Analysis generation failed: ${error.message}`);
     }
+}
+
+// Helper function to clean up JSON responses from Gemini
+function cleanJsonResponse(text) {
+    // Remove markdown code blocks
+    text = text.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+    
+    // Remove any text before the first {
+    const firstBrace = text.indexOf('[');
+    if (firstBrace > 0) {
+        text = text.substring(firstBrace);
+    }
+    
+    // Remove any text after the last }
+    const lastBrace = text.lastIndexOf(']');
+    if (lastBrace > 0 && lastBrace < text.length - 1) {
+        text = text.substring(0, lastBrace + 1);
+    }
+    
+    // Remove common prefixes/suffixes
+    text = text.replace(/^Here's the JSON:\s*/i, '');
+    text = text.replace(/^The JSON response is:\s*/i, '');
+    text = text.replace(/^JSON:\s*/i, '');
+    text = text.replace(/^Response:\s*/i, '');
+    text = text.replace(/^Claims:\s*/i, '');
+    text = text.replace(/^Extracted claims:\s*/i, '');
+    
+    // Clean up any remaining whitespace
+    text = text.trim();
+    
+    return text;
 }
 
 // Handle installation
