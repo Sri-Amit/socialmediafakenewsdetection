@@ -126,12 +126,13 @@
         <h1>🔍 Test Dynamic Credibility System</h1>
         
         <div class="credibility-info">
-            <h3>🎯 How the New System Works</h3>
+            <h3>🎯 How the New AI-Powered System Works</h3>
             <ul>
                 <li><strong>Content Analysis:</strong> AI analyzes the tweet to determine subject matter (Politics, Sports, Science, etc.)</li>
-                <li><strong>Dynamic Source Selection:</strong> Different credible sources for different subjects</li>
-                <li><strong>Intelligent Scoring:</strong> Sources scored based on relevance and credibility</li>
-                <li><strong>Context Awareness:</strong> Geographic scope and temporal context considered</li>
+                <li><strong>Dynamic Source Finding:</strong> Searches for relevant sources instead of using predefined lists</li>
+                <li><strong>AI Source Evaluation:</strong> Gemini AI evaluates each source's credibility and relevance</li>
+                <li><strong>Intelligent Scoring:</strong> Sources scored by AI based on reputation, expertise, and context</li>
+                <li><strong>Transparent Reasoning:</strong> AI provides explanations for credibility scores</li>
             </ul>
         </div>
         
@@ -140,7 +141,7 @@
             <textarea id="testText" placeholder="Enter a tweet to test the dynamic credibility system...">Breaking news: Scientists discover that drinking coffee can extend your life by 10 years, according to a new study published in Nature.</textarea>
         </div>
         
-        <button onclick="testDynamicCredibility()">Test Dynamic Credibility</button>
+        <button onclick="testDynamicCredibility()">Test AI-Powered Source Analysis</button>
         <button onclick="showExampleSubjects()">Show Subject Examples</button>
         <button onclick="testSubjectDetection()">Test Subject Detection</button>
         
@@ -261,15 +262,73 @@
             }
 
             try {
-                showResult('Testing dynamic credibility system...', 'warning');
+                showResult('Testing AI-powered dynamic credibility system...', 'warning');
                 
-                // Simulate the complete system
+                // Test the actual AI-powered system
+                const response = await fetch('http://localhost:3000/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: testText })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                let result = `🚀 AI-POWERED DYNAMIC CREDIBILITY SYSTEM TEST\n\n`;
+                result += `Tweet: "${testText}"\n\n`;
+                
+                result += `=== AI CONTENT ANALYSIS ===\n`;
+                result += `Headline: ${data.headline}\n`;
+                result += `Overall Credibility Score: ${data.credibilityScore}%\n\n`;
+                
+                result += `=== AI-EVALUATED SOURCES ===\n`;
+                if (data.sources && data.sources.length > 0) {
+                    data.sources.forEach((source, index) => {
+                        result += `${index + 1}. ${source.source}\n`;
+                        result += `   Title: ${source.title}\n`;
+                        result += `   AI Credibility Score: ${source.credibilityScore}%\n`;
+                        result += `   AI Relevance Score: ${source.relevanceScore}%\n`;
+                        result += `   AI Overall Score: ${source.finalScore}%\n`;
+                        result += `   AI Reasoning: ${source.reasoning}\n`;
+                        result += `   URL: ${source.url}\n\n`;
+                    });
+                } else {
+                    result += `No sources found or analyzed.\n\n`;
+                }
+                
+                result += `=== INDIVIDUAL CLAIM ANALYSES ===\n`;
+                if (data.factChecks && data.factChecks.length > 0) {
+                    data.factChecks.forEach((claim, index) => {
+                        result += `${index + 1}. "${claim.claim}"\n`;
+                        result += `   Verdict: ${claim.verdict}\n`;
+                        result += `   Confidence: ${claim.confidence}%\n`;
+                        result += `   Credibility Score: ${claim.credibilityScore}%\n`;
+                        result += `   Reasoning: ${claim.reasoning}\n\n`;
+                    });
+                } else {
+                    result += `No specific claims found to analyze.\n\n`;
+                }
+                
+                result += `=== AI ANALYSIS SUMMARY ===\n`;
+                result += `${data.analysis}\n`;
+                
+                showResult(result, 'success');
+                
+            } catch (error) {
+                // Fallback to mock test if API is not available
+                showResult('API not available, running mock test...', 'warning');
+                
                 const mockAnalysis = analyzeContentSubjectMock(testText);
                 const mockSources = getSubjectSpecificCredibleSourcesMock(mockAnalysis);
                 const mockNewsResults = generateMockNewsResults(testText);
                 const scoredSources = scoreAndRankSourcesMock(mockNewsResults, mockSources, mockAnalysis);
                 
-                let result = `🚀 DYNAMIC CREDIBILITY SYSTEM TEST\n\n`;
+                let result = `🚀 MOCK DYNAMIC CREDIBILITY SYSTEM TEST\n\n`;
                 result += `Tweet: "${testText}"\n\n`;
                 
                 result += `=== CONTENT ANALYSIS ===\n`;
@@ -291,9 +350,6 @@
                 });
                 
                 showResult(result, 'success');
-                
-            } catch (error) {
-                showResult(`❌ Test failed: ${error.message}`, 'error');
             }
         }
 

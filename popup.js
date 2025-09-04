@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 sourceDomain.style.marginTop = '2px';
                 sourceContainer.appendChild(sourceDomain);
                 
-                // Credibility scores
+                // AI-Generated Credibility scores
                 if (source.credibilityScore !== undefined) {
                     const scoresContainer = document.createElement('div');
                     scoresContainer.style.display = 'flex';
@@ -264,6 +264,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     sourceContainer.appendChild(scoresContainer);
+                    
+                    // Add AI reasoning if available
+                    if (source.reasoning) {
+                        const reasoningContainer = document.createElement('div');
+                        reasoningContainer.style.marginTop = '5px';
+                        reasoningContainer.style.fontSize = '10px';
+                        reasoningContainer.style.color = '#6c757d';
+                        reasoningContainer.style.fontStyle = 'italic';
+                        reasoningContainer.textContent = `AI Analysis: ${source.reasoning}`;
+                        sourceContainer.appendChild(reasoningContainer);
+                    }
                 }
                 
                 detailsContainer.appendChild(sourceContainer);

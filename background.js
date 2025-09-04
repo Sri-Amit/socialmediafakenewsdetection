@@ -205,19 +205,15 @@ Text to analyze: "${content}"`
 
 async function searchCredibleSources(content) {
     try {
-        console.log('Searching for credible sources for content:', content);
+        console.log('Searching for relevant sources for content:', content);
         
         // Step 1: Analyze content to determine subject and context
         const contentAnalysis = await analyzeContentSubject(content);
         console.log('Content analysis result:', contentAnalysis);
         
-        // Step 2: Get subject-specific credible sources
-        const credibleSources = getSubjectSpecificCredibleSources(contentAnalysis);
-        console.log('Subject-specific credible sources:', credibleSources);
-        
-        // Step 3: Search for news sources using SerpAPI
+        // Step 2: Search for news sources using SerpAPI with broader search
         const searchQuery = encodeURIComponent(content);
-        const response = await fetch(`https://serpapi.com/search.json?engine=google&q=${searchQuery}&api_key=${SERPAPI_KEY}&num=15&tbm=nws`);
+        const response = await fetch(`https://serpapi.com/search.json?engine=google&q=${searchQuery}&api_key=${SERPAPI_KEY}&num=20&tbm=nws`);
         
         if (!response.ok) {
             throw new Error(`SerpAPI error: ${response.status}`);
@@ -229,9 +225,9 @@ async function searchCredibleSources(content) {
             return [];
         }
 
-        // Step 4: Score and rank sources based on subject relevance and credibility
-        const scoredSources = scoreAndRankSources(data.news_results, credibleSources, contentAnalysis);
-        console.log('Scored and ranked sources:', scoredSources);
+        // Step 3: Use Gemini AI to analyze and score each source for credibility and relevance
+        const scoredSources = await analyzeAndScoreSourcesWithAI(data.news_results, content, contentAnalysis);
+        console.log('AI-scored sources:', scoredSources);
         
         // Return top 5 most credible and relevant sources
         return scoredSources.slice(0, 5);
@@ -448,43 +444,153 @@ function getSubjectSpecificCredibleSources(contentAnalysis) {
     return allSources;
 }
 
-function scoreAndRankSources(newsResults, credibleSources, contentAnalysis) {
+async function analyzeAndScoreSourcesWithAI(newsResults, content, contentAnalysis) {
+    try {
+        console.log('Analyzing sources with AI for content:', content);
+        
+        // Prepare sources data for AI analysis
+        const sourcesData = newsResults.map(result => ({
+            title: result.title,
+            url: result.link,
+            snippet: result.snippet,
+            source: new URL(result.link).hostname.replace('www.', ''),
+            date: result.date
+        }));
+        
+        // Use Gemini AI to analyze and score all sources
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: `You are a source credibility analyst. Analyze the given news sources and score them for credibility and relevance to the content being fact-checked.
+
+IMPORTANT: Return ONLY a valid JSON array. No other text, explanations, or formatting.
+
+Content being fact-checked: "${content}"
+Content analysis: ${JSON.stringify(contentAnalysis)}
+
+Sources to analyze: ${JSON.stringify(sourcesData)}
+
+For each source, provide:
+- credibilityScore: 0-100 (based on source reputation, domain authority, journalistic standards)
+- relevanceScore: 0-100 (how relevant the source is to the specific content topic)
+- reasoning: brief explanation for the scores
+- finalScore: weighted average (70% credibility + 30% relevance)
+
+Required JSON format:
+[
+    {
+        "title": "Article Title",
+        "url": "https://source.com/article",
+        "snippet": "Article summary",
+        "source": "source.com",
+        "credibilityScore": 85,
+        "relevanceScore": 90,
+        "reasoning": "Highly credible news organization with strong track record in this subject area",
+        "finalScore": 87
+    }
+]
+
+Consider these factors for credibility:
+- Established news organizations (Reuters, AP, BBC, major newspapers)
+- Academic institutions (.edu domains)
+- Government sources (.gov domains)
+- Reputable magazines and journals
+- Avoid: blogs, social media, opinion sites, unknown sources
+
+Consider these factors for relevance:
+- Subject matter expertise
+- Geographic relevance
+- Temporal relevance (recent vs old sources)
+- Content depth and quality
+
+Return ONLY the JSON array:`
+                    }]
+                }],
+                generationConfig: {
+                    maxOutputTokens: 2000,
+                    temperature: 0.1
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        const resultText = data.candidates[0].content.parts[0].text.trim();
+        
+        try {
+            // Try to parse as JSON
+            const scoredSources = JSON.parse(resultText);
+            if (Array.isArray(scoredSources)) {
+                // Sort by final score descending and filter out low-quality sources
+                return scoredSources
+                    .filter(source => source.finalScore >= 40) // Only include reasonably credible sources
+                    .sort((a, b) => b.finalScore - a.finalScore);
+            } else {
+                throw new Error('AI response is not an array');
+            }
+        } catch (parseError) {
+            console.error('JSON parse error for AI source analysis:', parseError);
+            console.error('Failed to parse AI response:', resultText);
+            
+            // Try to clean up the response and parse again
+            const cleanedText = cleanJsonResponse(resultText);
+            try {
+                const scoredSources = JSON.parse(cleanedText);
+                if (Array.isArray(scoredSources)) {
+                    return scoredSources
+                        .filter(source => source.finalScore >= 40)
+                        .sort((a, b) => b.finalScore - a.finalScore);
+                }
+            } catch (secondParseError) {
+                console.error('Second JSON parse attempt failed:', secondParseError);
+            }
+            
+            // Fallback: use the old scoring method
+            console.log('Falling back to traditional scoring method');
+            return fallbackScoreSources(newsResults, contentAnalysis);
+        }
+    } catch (error) {
+        console.error('Error analyzing sources with AI:', error);
+        // Fallback to traditional scoring
+        return fallbackScoreSources(newsResults, contentAnalysis);
+    }
+}
+
+function fallbackScoreSources(newsResults, contentAnalysis) {
+    // Fallback scoring method using basic heuristics
     return newsResults
         .map(result => {
             const domain = new URL(result.link).hostname.replace('www.', '');
-            const sourceInfo = credibleSources[domain];
             
-            let credibilityScore = 0;
-            let relevanceScore = 0;
-            let finalScore = 0;
+            let credibilityScore = 40; // Base score for unknown sources
+            let relevanceScore = 50; // Base relevance score
             
-            if (sourceInfo) {
-                // High credibility if source is in our credible list
-                credibilityScore = sourceInfo.credibility;
-                
-                // Bonus for subject relevance
-                if (sourceInfo.subjects.includes('ALL') || sourceInfo.subjects.includes(contentAnalysis.primarySubject)) {
-                    relevanceScore += 20;
-                }
-                
-                // Bonus for geographic scope match
-                if (sourceInfo.scope === contentAnalysis.geographicScope || sourceInfo.scope === 'INTERNATIONAL') {
-                    relevanceScore += 15;
-                }
-            } else {
-                // Lower credibility for unknown sources
-                credibilityScore = 40;
-                
-                // Try to infer credibility from domain patterns
-                if (domain.includes('.edu') || domain.includes('.gov')) {
-                    credibilityScore += 20;
-                } else if (domain.includes('news') || domain.includes('times') || domain.includes('post')) {
-                    credibilityScore += 10;
-                }
+            // Basic credibility heuristics
+            if (domain.includes('.edu') || domain.includes('.gov')) {
+                credibilityScore += 30;
+            } else if (domain.includes('reuters') || domain.includes('ap.org') || domain.includes('bbc')) {
+                credibilityScore += 40;
+            } else if (domain.includes('nytimes') || domain.includes('washingtonpost') || domain.includes('wsj')) {
+                credibilityScore += 35;
+            } else if (domain.includes('news') || domain.includes('times') || domain.includes('post')) {
+                credibilityScore += 15;
             }
             
-            // Calculate final score (70% credibility + 30% relevance)
-            finalScore = (credibilityScore * 0.7) + (relevanceScore * 0.3);
+            // Basic relevance scoring
+            if (result.title.toLowerCase().includes(contentAnalysis.primarySubject.toLowerCase())) {
+                relevanceScore += 20;
+            }
+            
+            const finalScore = (credibilityScore * 0.7) + (relevanceScore * 0.3);
             
             return {
                 title: result.title,
@@ -493,12 +599,12 @@ function scoreAndRankSources(newsResults, credibleSources, contentAnalysis) {
                 source: domain,
                 credibilityScore: Math.round(credibilityScore),
                 relevanceScore: Math.round(relevanceScore),
-                finalScore: Math.round(finalScore),
-                sourceInfo: sourceInfo || null
+                reasoning: 'Fallback scoring method used',
+                finalScore: Math.round(finalScore)
             };
         })
-        .filter(result => result.finalScore >= 50) // Only include reasonably credible sources
-        .sort((a, b) => b.finalScore - a.finalScore); // Sort by final score descending
+        .filter(result => result.finalScore >= 40)
+        .sort((a, b) => b.finalScore - a.finalScore);
 }
 
 async function analyzeIndividualClaims(claims, sources) {
@@ -730,6 +836,15 @@ async function generateAnalysis(content, claimAnalyses, sources, credibilityScor
     try {
         console.log('Generating analysis for content:', content);
         
+        // Prepare source summary for analysis
+        const sourceSummary = sources.map(source => ({
+            source: source.source,
+            credibilityScore: source.credibilityScore,
+            relevanceScore: source.relevanceScore,
+            finalScore: source.finalScore,
+            reasoning: source.reasoning
+        }));
+        
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
@@ -738,15 +853,15 @@ async function generateAnalysis(content, claimAnalyses, sources, credibilityScor
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `You are a fact-checking analyst. Provide a brief, objective analysis of the credibility of the given content based on the individual claim analyses and overall credibility score. Keep it under 150 words.
+                        text: `You are a fact-checking analyst. Provide a brief, objective analysis of the credibility of the given content based on the individual claim analyses, overall credibility score, and AI-evaluated sources. Keep it under 150 words.
 
 Analyze this content: "${content}"
                         
-                        Individual Claim Analyses: ${JSON.stringify(claimAnalyses)}
-                        Overall Credibility Score: ${credibilityScore}%
-                        Total Sources Found: ${sources.length}
+Individual Claim Analyses: ${JSON.stringify(claimAnalyses)}
+Overall Credibility Score: ${credibilityScore}%
+AI-Evaluated Sources: ${JSON.stringify(sourceSummary)}
 
-Provide a clear, concise analysis that explains the overall credibility and highlights any notable individual claims.`
+Provide a clear, concise analysis that explains the overall credibility, highlights any notable individual claims, and mentions the quality of sources used for verification.`
                     }]
                 }],
                 generationConfig: {
