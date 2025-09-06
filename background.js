@@ -69,7 +69,7 @@ async function generateHeadline(content) {
     try {
         console.log('Generating headline for:', content);
         
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -119,7 +119,7 @@ async function extractClaims(content) {
     try {
         console.log('Extracting claims from:', content);
         
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -129,11 +129,16 @@ async function extractClaims(content) {
                         parts: [{
                             text: `You are a claim extractor. Extract specific factual claims from the given text and return ONLY valid JSON.
 
-IMPORTANT: Return ONLY the JSON array, no additional text, markdown, or explanations.
+CRITICAL INSTRUCTIONS:
+- Return ONLY a valid JSON array
+- No markdown formatting, no code blocks, no explanations
+- No additional text before or after the JSON
+- Each claim should be a string in the array
+- Example format: ["claim1", "claim2", "claim3"]
 
-Required JSON format: ["claim1", "claim2", "claim3"]
+Text to analyze: "${content}"
 
-Text to analyze: "${content}"`
+JSON response:`
                         }]
                     }],
                     generationConfig: {
@@ -240,7 +245,7 @@ async function searchCredibleSources(content) {
 
 async function analyzeContentSubject(content) {
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -250,7 +255,12 @@ async function analyzeContentSubject(content) {
                     parts: [{
                         text: `You are a content analyzer. Analyze the given content and determine its primary subject matter and context. Return ONLY valid JSON.
 
-IMPORTANT: Return ONLY the JSON object, no additional text, markdown, or explanations.
+CRITICAL INSTRUCTIONS:
+- Return ONLY a valid JSON object
+- No markdown formatting, no code blocks, no explanations
+- No additional text before or after the JSON
+- Use exact values from the specified options
+- Confidence must be a number between 0-100
 
 Required JSON format:
 {
@@ -259,10 +269,12 @@ Required JSON format:
     "geographicScope": "LOCAL/REGIONAL/NATIONAL/INTERNATIONAL",
     "temporalContext": "CURRENT_EVENT/HISTORICAL/PREDICTIVE",
     "credibilityFactors": ["factor1", "factor2"],
-    "confidence": 0-100
+    "confidence": 85
 }
 
-Content to analyze: "${content}"`
+Content to analyze: "${content}"
+
+JSON response:`
                     }]
                 }],
                 generationConfig: {
@@ -458,7 +470,7 @@ async function analyzeAndScoreSourcesWithAI(newsResults, content, contentAnalysi
         }));
         
         // Use Gemini AI to analyze and score all sources
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -468,7 +480,12 @@ async function analyzeAndScoreSourcesWithAI(newsResults, content, contentAnalysi
                     parts: [{
                         text: `You are a source credibility analyst. Analyze the given news sources and score them for credibility and relevance to the content being fact-checked.
 
-IMPORTANT: Return ONLY a valid JSON array. No other text, explanations, or formatting.
+CRITICAL INSTRUCTIONS:
+- Return ONLY a valid JSON array
+- No markdown formatting, no code blocks, no explanations
+- No additional text before or after the JSON
+- All scores must be numbers between 0-100
+- finalScore must be calculated as (credibilityScore * 0.7) + (relevanceScore * 0.3)
 
 Content being fact-checked: "${content}"
 Content analysis: ${JSON.stringify(contentAnalysis)}
@@ -508,7 +525,7 @@ Consider these factors for relevance:
 - Temporal relevance (recent vs old sources)
 - Content depth and quality
 
-Return ONLY the JSON array:`
+JSON response:`
                     }]
                 }],
                 generationConfig: {
@@ -646,7 +663,7 @@ async function getFactCheckVerdict(claim, sources) {
     try {
         console.log('Getting fact-check verdict for claim:', claim);
         
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -656,7 +673,13 @@ async function getFactCheckVerdict(claim, sources) {
                     parts: [{
                         text: `You are a fact-checker. Analyze the given claim against the provided sources. 
 
-IMPORTANT: You must respond with ONLY a valid JSON object. No other text, explanations, or formatting.
+CRITICAL INSTRUCTIONS:
+- Return ONLY a valid JSON object
+- No markdown formatting, no code blocks, no explanations
+- No additional text before or after the JSON
+- verdict must be exactly "TRUE", "FALSE", or "UNCLEAR"
+- confidence must be an integer from 0-100
+- reasoning must be a string in quotes
 
 Required JSON format:
 {
@@ -672,7 +695,7 @@ Reasoning: brief explanation in quotes
 Claim to check: "${claim}"
 Available sources: ${JSON.stringify(sources)}
 
-Respond with ONLY the JSON object:`
+JSON response:`
                     }]
                 }],
                 generationConfig: {
@@ -845,7 +868,7 @@ async function generateAnalysis(content, claimAnalyses, sources, credibilityScor
             reasoning: source.reasoning
         }));
         
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
