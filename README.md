@@ -1,167 +1,165 @@
-# Fake News Detector for Twitter
+# Fake News Twitter Detection - Web Application
 
-A Chrome extension that analyzes Twitter posts for fake news detection using AI and web search integration.
+A web-based application for analyzing tweets and social media content for credibility and fact-checking using Google Gemini AI and SerpAPI.
 
 ## Features
 
-- 🔍 **AI-Powered Analysis**: Uses Google Gemini 1.5 Flash to analyze tweet content
-- 📰 **Headline Generation**: Creates concise headlines summarizing tweet claims
-- 🎯 **Credibility Scoring**: Provides percentage-based credibility scores
-- 🔍 **Fact-Checking**: Extracts and verifies specific claims against credible sources
-- 📊 **Source Verification**: Searches for credible news sources to verify claims
-- 🎨 **Visual Overlays**: Displays analysis results directly on Twitter posts
-- ⚡ **Auto-Analysis**: Optional automatic analysis of tweets as you browse
-- 📱 **Modern UI**: Beautiful, responsive interface with dark mode support
-
-## How It Works
-
-1. **Content Extraction**: Extracts tweet text from Twitter/X pages
-2. **AI Analysis**: Uses Google Gemini 1.5 Flash to generate headlines and extract claims
-3. **Web Search**: Searches for credible news sources using SerpAPI
-4. **Fact-Checking**: Verifies claims against found sources
-5. **Scoring**: Calculates credibility score based on fact-check results
-6. **Display**: Shows results in popup and as overlays on tweets
+- **Real-time Analysis**: Analyze tweets and social media content for credibility
+- **AI-Powered Fact-Checking**: Uses Google Gemini AI for intelligent analysis
+- **Source Verification**: Searches for credible sources using SerpAPI
+- **Individual Claim Analysis**: Breaks down content into individual claims for detailed verification
+- **Credibility Scoring**: Provides overall and individual credibility scores
+- **Modern UI**: Clean, responsive web interface
 
 ## Setup Instructions
 
-### Prerequisites
+### 1. Prerequisites
 
-- Chrome browser
-- Google Gemini API key
-- SerpAPI key (optional, for enhanced source search)
+- A modern web browser
+- API keys for:
+  - Google Gemini API
+  - SerpAPI (optional, for source searching)
 
-### Installation
+### 2. Configuration
 
-1. **Clone or download this repository**
-   ```bash
-   git clone <repository-url>
-   cd fakenewstwitterdetection
+1. Open `app.js` in a text editor
+2. Replace the API keys in the `CONFIG` object:
+   ```javascript
+   const CONFIG = {
+       GEMINI_API_KEY: 'your-gemini-api-key-here',
+       SERPAPI_KEY: 'your-serpapi-key-here',
+       // ... other config
+   };
    ```
 
-2. **Configure API Keys**
-   - Open `background.js`
-   - Replace `YOUR_GEMINI_API_KEY` with your actual Google Gemini API key
-   - Replace `YOUR_SERPAPI_KEY` with your SerpAPI key (optional)
+### 3. Running the Application
 
-3. **Load Extension in Chrome**
-   - Open Chrome and go to `chrome://extensions/`
-   - Enable "Developer mode" (toggle in top right)
-   - Click "Load unpacked"
-   - Select the extension folder
+#### Option 1: Simple HTTP Server (Recommended)
 
-4. **Get API Keys**
-   - **Google Gemini**: Sign up at [Google AI Studio](https://makersuite.google.com/app/apikey) and get an API key
-   - **SerpAPI**: Sign up at [SerpAPI](https://serpapi.com/) for enhanced web search (optional)
+1. **Using Python 3:**
+   ```bash
+   cd /path/to/fakenewstwitterdetection
+   python -m http.server 8000
+   ```
+
+2. **Using Python 2:**
+   ```bash
+   cd /path/to/fakenewstwitterdetection
+   python -m SimpleHTTPServer 8000
+   ```
+
+3. **Using Node.js:**
+   ```bash
+   cd /path/to/fakenewstwitterdetection
+   npx http-server -p 8000
+   ```
+
+4. **Using PHP:**
+   ```bash
+   cd /path/to/fakenewstwitterdetection
+   php -S localhost:8000
+   ```
+
+#### Option 2: Direct File Opening
+
+Simply open `index.html` in your web browser (note: some features may not work due to CORS restrictions).
+
+### 4. Access the Application
+
+Open your web browser and navigate to:
+- `http://localhost:8000` (if using a local server)
+- Or open `index.html` directly
 
 ## Usage
 
-### Manual Analysis
-1. Navigate to Twitter/X
-2. Click the extension icon in your browser toolbar
-3. Click "Analyze Current Tweet" to analyze the tweet you're viewing
-4. Or paste tweet text and click "Analyze Pasted Text"
+1. **Enter Content**: Paste the tweet or social media content you want to analyze into the text area
+2. **Analyze**: Click the "Analyze Content" button or press Ctrl+Enter
+3. **Review Results**: View the analysis results including:
+   - Generated headline
+   - Overall credibility score
+   - Individual claim analysis
+   - Sources used for verification
+   - Detailed analysis summary
 
-### Auto-Analysis
-1. Open the extension popup
-2. Check "Auto-analyze tweets"
-3. Browse Twitter normally - tweets will be analyzed automatically
-4. Look for colored overlays on tweets indicating credibility
+## API Keys Setup
 
-### Understanding Results
+### Google Gemini API
 
-- **Credibility Score**: 0-100% rating of tweet credibility
-- **Headline Summary**: AI-generated headline of the main claim
-- **Fact Check Results**: Verification of specific claims (TRUE/FALSE/UNCLEAR)
-- **Sources**: Links to credible news sources used for verification
-- **Analysis**: Detailed explanation of the assessment
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Copy the key and paste it in `app.js`
 
-### Color Coding
-- 🟢 **Green (70%+)**: Likely credible
-- 🟡 **Yellow (40-69%)**: Unclear or mixed evidence
-- 🔴 **Red (0-39%)**: Likely fake or misleading
+### SerpAPI (Optional)
+
+1. Go to [SerpAPI](https://serpapi.com/)
+2. Sign up for an account
+3. Get your API key from the dashboard
+4. Copy the key and paste it in `app.js`
 
 ## File Structure
 
 ```
 fakenewstwitterdetection/
-├── manifest.json          # Extension configuration
-├── popup.html             # Extension popup interface
-├── popup.css              # Popup styles
-├── popup.js               # Popup functionality
-├── background.js          # Background service worker
-├── content.js             # Content script for Twitter pages
-├── content.css            # Content script styles
-├── icons/                 # Extension icons
-└── README.md              # This file
+├── index.html          # Main HTML file
+├── styles.css          # CSS styles
+├── app.js             # Main JavaScript application
+├── background.js      # Original extension code (for reference)
+├── config.js          # Configuration file (for reference)
+├── popup.html         # Original extension popup (for reference)
+├── popup.js           # Original extension popup script (for reference)
+├── content.js         # Original extension content script (for reference)
+├── manifest.json      # Original extension manifest (for reference)
+└── README.md          # This file
 ```
 
-## API Configuration
+## Features Comparison
 
-### Required: Google Gemini API
-The extension requires a Google Gemini API key for:
-- Headline generation
-- Claim extraction
-- Fact-checking analysis
-- Detailed analysis generation
-
-### Optional: SerpAPI
-SerpAPI enhances the extension by:
-- Searching for credible news sources
-- Providing more comprehensive fact-checking
-- Improving source verification
-
-## Privacy & Security
-
-- **Local Processing**: Tweet content is processed locally before API calls
-- **No Data Storage**: No personal data is stored permanently
-- **API Usage**: Only tweet content is sent to APIs for analysis
-- **Secure Communication**: All API calls use HTTPS
-
-## Limitations
-
-- **API Costs**: Google Gemini and SerpAPI usage incurs costs
-- **Rate Limits**: API providers may have rate limits
-- **Accuracy**: AI analysis is not 100% accurate
-- **Source Availability**: Depends on available credible sources
-- **Language**: Currently optimized for English content
+| Feature | Extension Version | Web Version |
+|---------|------------------|-------------|
+| Tweet Analysis | ✅ | ✅ |
+| Fact-Checking | ✅ | ✅ |
+| Source Verification | ✅ | ✅ |
+| Credibility Scoring | ✅ | ✅ |
+| Real-time Analysis | ✅ | ✅ |
+| Auto Tweet Detection | ✅ | ❌ |
+| Browser Integration | ✅ | ❌ |
+| Cross-Origin Requests | ✅ | ✅ |
 
 ## Troubleshooting
 
-### Extension Not Working
-1. Check that API keys are correctly configured
-2. Ensure you're on Twitter/X pages
-3. Check browser console for error messages
-4. Verify extension permissions
+### CORS Issues
+If you encounter CORS (Cross-Origin Resource Sharing) issues:
+- Use a local HTTP server instead of opening the file directly
+- The application is designed to work with local servers
 
-### API Errors
-1. Verify API keys are valid and have sufficient credits
-2. Check API rate limits
-3. Ensure internet connection is stable
+### API Key Issues
+- Ensure your API keys are valid and have the necessary permissions
+- Check the browser console for any API-related errors
 
-### No Analysis Results
-1. Make sure you're viewing a tweet with text content
-2. Try refreshing the page
-3. Check if the tweet contains verifiable claims
+### Network Issues
+- Ensure you have a stable internet connection
+- Check if your firewall is blocking the requests
 
-## Contributing
+## Development
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+### Adding New Features
+1. Modify `app.js` to add new functionality
+2. Update `styles.css` for styling changes
+3. Modify `index.html` for UI changes
+
+### Testing
+- Use the browser's developer tools to debug
+- Check the console for any JavaScript errors
+- Test with different types of content
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Disclaimer
-
-This extension is for educational and informational purposes only. AI-generated analysis should not be considered as definitive fact-checking. Always verify information from multiple credible sources and use critical thinking when evaluating online content.
+This project is for educational and research purposes. Please ensure you comply with the terms of service of the APIs you use.
 
 ## Support
 
-For issues, questions, or contributions:
-- Create an issue on GitHub
-- Check the troubleshooting section above
-- Review API documentation for Google Gemini and SerpAPI 
+For issues or questions:
+1. Check the browser console for error messages
+2. Verify your API keys are correct
+3. Ensure you're using a local HTTP server
+4. Check the network tab for failed requests
