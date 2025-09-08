@@ -44,7 +44,7 @@ async function handleFactCheck(data, sendResponse) {
       }
     });
     
-  } catch (error) {
+    } catch (error) {
     console.error('Fact check error:', error);
     sendResponse({
       success: false,
@@ -64,10 +64,18 @@ async function performCombinedFactCheck(text, images) {
   const sanitizedText = text.replace(/["\\]/g, '\\$&').substring(0, 2000);
   
   const prompt = `
-    Analyze this social media post and provide a comprehensive fact-check in a single response.
+    Use Google Search to analyze this social media post and provide a comprehensive fact-check with real, current sources.
     
     Post Text: "${sanitizedText}"
     ${images && images.length > 0 ? `Images: ${images.length} image(s) with extracted text` : ''}
+    
+    Search for current, authoritative sources to verify each claim. Use real-time information from:
+    - Government websites (.gov)
+    - Academic institutions (.edu)
+    - Reputable news organizations (Reuters, AP, BBC, etc.)
+    - Scientific journals and research papers
+    - Fact-checking organizations (Snopes, PolitiFact, etc.)
+    - International organizations (WHO, UN, etc.)
     
     Please provide a complete fact-check analysis in this JSON format:
     {
@@ -95,16 +103,20 @@ async function performCombinedFactCheck(text, images) {
       ]
     }
     
+    IMPORTANT: Only use real, accessible sources that actually exist. Do not make up or hallucinate sources.
+    
     Focus on:
     1. Extract 2-4 most important factual claims
-    2. Find 1-2 credible sources per claim
+    2. Find 1-2 real, credible sources per claim using Google Search
     3. Rate each claim's credibility (1-10)
-    4. Provide clear explanations
+    4. Provide clear explanations based on actual sources
     5. Keep it concise but thorough
+    
+    Return ONLY valid JSON in the exact format shown above. Do not include any text before or after the JSON.
   `;
   
   try {
-    const response = await callGeminiAPI(prompt, apiKey);
+    const response = await callGeminiAPI(prompt, apiKey, 0, true); // Enable grounding for fact-checking
     const result = JSON.parse(cleanJsonResponse(response));
     
     // Validate and clean result
@@ -143,7 +155,7 @@ async function performCombinedFactCheck(text, images) {
     console.error('Failed to parse combined fact-check JSON:', error);
     console.log('Raw response:', response);
     // Return fallback response
-    return {
+                return {
       overallRating: {
         rating: 5,
         confidence: 0.1,
@@ -234,36 +246,41 @@ async function findRelevantSources(claim) {
   const sanitizedClaim = claim.replace(/["\\]/g, '\\$&').substring(0, 1000);
   
   const prompt = `
-    Find relevant, credible sources to verify this claim: "${sanitizedClaim}"
+    Use Google Search to find current, authoritative sources that can verify or refute this claim: "${sanitizedClaim}"
     
-    Use grounding to search for authoritative sources including:
+    Search for recent, credible sources including:
     - Government websites (.gov)
-    - Academic institutions (.edu)
-    - Reputable news organizations
-    - Scientific journals
-    - International organizations
+    - Academic institutions (.edu) 
+    - Reputable news organizations (Reuters, AP, BBC, etc.)
+    - Scientific journals and research papers
+    - International organizations (WHO, UN, etc.)
+    - Fact-checking organizations (Snopes, PolitiFact, etc.)
     
-    For each source, provide:
-    - URL
-    - Title
-    - Credibility score (1-10)
-    - Relevance score (1-10)
-    - Brief summary of how it relates to the claim
+    For each source found, provide:
+    - URL (must be real and accessible)
+    - Title (actual article/source title)
+    - Credibility score (1-10 based on source reputation)
+    - Relevance score (1-10 based on how directly it addresses the claim)
+    - Summary (brief description of what the source says about the claim)
     
-    Return as JSON array with this structure:
+    IMPORTANT: Only include sources that actually exist and are accessible. Do not make up or hallucinate sources.
+    
+    Return ONLY a valid JSON array with this exact structure:
     [
       {
-        "url": "https://example.com",
-        "title": "Source Title",
+        "url": "https://real-source.com/article",
+        "title": "Actual Article Title",
         "credibilityScore": 9,
         "relevanceScore": 8,
-        "summary": "Brief description of relevance"
+        "summary": "What this source says about the claim"
       }
     ]
+    
+    Do not include any text before or after the JSON array. Return only the JSON.
   `;
   
   try {
-    const response = await callGeminiAPI(prompt, apiKey);
+    const response = await callGeminiAPI(prompt, apiKey, 0, true); // Enable grounding
     const sources = JSON.parse(cleanJsonResponse(response));
     
     // Validate response
@@ -288,7 +305,7 @@ async function findRelevantSources(claim) {
       relevanceScore: Math.round(source.relevanceScore),
       summary: (source.summary || '').substring(0, 300) // Limit summary length
     }));
-  } catch (error) {
+    } catch (error) {
     console.error('Failed to parse sources JSON:', error);
     console.log('Raw response:', response);
     // Return a fallback response
@@ -363,7 +380,7 @@ async function assessClaimCredibility(claim, sources) {
         result.keyEvidence.filter(item => typeof item === 'string').slice(0, 5) : 
         []
     };
-  } catch (error) {
+    } catch (error) {
     console.error('Failed to parse credibility JSON:', error);
     console.log('Raw response:', response);
     // Return a fallback response
@@ -407,29 +424,40 @@ function calculateOverallCredibility(factCheckResults) {
   };
 }
 
-async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
+async function callGeminiAPI(prompt, apiKey, retryCount = 0, useGrounding = false) {
   const maxRetries = 3;
   const baseDelay = 2000; // 2 seconds base delay
   
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+    const requestBody = {
+      contents: [{
+        parts: [{
+          text: prompt
+                    }]
+                }],
+                generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 2048,
+      }
+    };
+
+    // Add grounding tools if requested
+    if (useGrounding) {
+      requestBody.tools = [{
+        google_search: {}
+      }];
+      // Remove responseMimeType when using grounding (not supported)
+      delete requestBody.generationConfig.responseMimeType;
+    }
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          topK: 1,
-          topP: 0.8,
-          maxOutputTokens: 2048,
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
     
     if (!response.ok) {
@@ -438,7 +466,7 @@ async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
         const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000;
         console.log(`Rate limit hit, retrying in ${Math.round(delay)}ms (attempt ${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return callGeminiAPI(prompt, apiKey, retryCount + 1);
+        return callGeminiAPI(prompt, apiKey, retryCount + 1, useGrounding);
       }
       
       const errorText = await response.text();
@@ -447,7 +475,7 @@ async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
     
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
-  } catch (error) {
+    } catch (error) {
     if (error.message.includes('429') && retryCount < maxRetries) {
       // Network error with 429 - retry with exponential backoff
       const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000;
@@ -533,7 +561,7 @@ function cleanJsonResponse(response) {
 
 async function getApiKey() {
   // Use the provided API key directly
-  return 'AIzaSyCsOPdyQQWuO-Eby6L7scmZ4SJSx_f5tfo';
+  return 'AIzaSyDaU5J4YTH70BihYb8QbGHjiK6negpX2os';
 }
 
 async function updateStats() {
