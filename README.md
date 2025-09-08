@@ -1,165 +1,130 @@
-# Fake News Twitter Detection - Web Application
+# Social Media Fact Checker Chrome Extension
 
-A web-based application for analyzing tweets and social media content for credibility and fact-checking using Google Gemini AI and SerpAPI.
+A Chrome extension that uses Google Gemini 2.5 Flash AI to fact-check tweets, Instagram posts, and Facebook posts. The extension can extract text from images and provides credibility ratings for individual claims and overall posts.
 
 ## Features
 
-- **Real-time Analysis**: Analyze tweets and social media content for credibility
-- **AI-Powered Fact-Checking**: Uses Google Gemini AI for intelligent analysis
-- **Source Verification**: Searches for credible sources using SerpAPI
-- **Individual Claim Analysis**: Breaks down content into individual claims for detailed verification
-- **Credibility Scoring**: Provides overall and individual credibility scores
-- **Modern UI**: Clean, responsive web interface
+- 🔍 **Multi-Platform Support**: Works on Twitter/X, Instagram, and Facebook
+- 🖼️ **Image Text Extraction**: Uses AI to read text from images in posts
+- 🧠 **AI-Powered Analysis**: Uses Google Gemini 2.5 Flash for claim extraction and fact-checking
+- 📊 **Credibility Scoring**: Provides credibility and relevance scores for sources
+- 🎯 **Grounding**: Finds relevant sources for each claim using AI grounding
+- 📱 **Modern UI**: Clean, responsive interface with real-time results
 
 ## Setup Instructions
 
-### 1. Prerequisites
+### 1. Install the Extension
 
-- A modern web browser
-- API keys for:
-  - Google Gemini API
-  - SerpAPI (optional, for source searching)
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable "Developer mode" in the top right
+3. Click "Load unpacked"
+4. Select the extension folder
+5. The extension should now appear in your extensions list
 
-### 2. Configuration
+### 2. Configure the Extension
 
-1. Open `app.js` in a text editor
-2. Replace the API keys in the `CONFIG` object:
-   ```javascript
-   const CONFIG = {
-       GEMINI_API_KEY: 'your-gemini-api-key-here',
-       SERPAPI_KEY: 'your-serpapi-key-here',
-       // ... other config
-   };
-   ```
+1. Click the extension icon in your browser toolbar
+2. Configure your preferences:
+   - Auto-check new posts
+   - Extract text from images
+3. Click "Save Settings"
 
-### 3. Running the Application
+### 3. Use the Extension
 
-#### Option 1: Simple HTTP Server (Recommended)
-
-1. **Using Python 3:**
-   ```bash
-   cd /path/to/fakenewstwitterdetection
-   python -m http.server 8000
-   ```
-
-2. **Using Python 2:**
-   ```bash
-   cd /path/to/fakenewstwitterdetection
-   python -m SimpleHTTPServer 8000
-   ```
-
-3. **Using Node.js:**
-   ```bash
-   cd /path/to/fakenewstwitterdetection
-   npx http-server -p 8000
-   ```
-
-4. **Using PHP:**
-   ```bash
-   cd /path/to/fakenewstwitterdetection
-   php -S localhost:8000
-   ```
-
-#### Option 2: Direct File Opening
-
-Simply open `index.html` in your web browser (note: some features may not work due to CORS restrictions).
-
-### 4. Access the Application
-
-Open your web browser and navigate to:
-- `http://localhost:8000` (if using a local server)
-- Or open `index.html` directly
-
-## Usage
-
-1. **Enter Content**: Paste the tweet or social media content you want to analyze into the text area
-2. **Analyze**: Click the "Analyze Content" button or press Ctrl+Enter
-3. **Review Results**: View the analysis results including:
-   - Generated headline
-   - Overall credibility score
+1. Visit Twitter, Instagram, or Facebook
+2. Look for posts with a "🔍 Fact Check" button
+3. Click the button to analyze the post
+4. Wait for AI analysis (may take 10-30 seconds)
+5. Review the results showing:
+   - Overall credibility rating
    - Individual claim analysis
-   - Sources used for verification
-   - Detailed analysis summary
+   - Source credibility and relevance scores
+   - Detailed explanations
 
-## API Keys Setup
+## How It Works
 
-### Google Gemini API
+### 1. Text Extraction
+- Extracts text from the post content
+- Uses AI vision to read text from images
+- Combines all text for comprehensive analysis
 
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new API key
-3. Copy the key and paste it in `app.js`
+### 2. Claim Analysis
+- AI identifies individual factual claims in the post
+- Separates verifiable facts from opinions
+- Focuses on claims that can be researched
 
-### SerpAPI (Optional)
+### 3. Source Finding
+- Uses AI grounding to find relevant sources
+- Searches for authoritative sources (.gov, .edu, news organizations)
+- Assigns credibility and relevance scores to each source
 
-1. Go to [SerpAPI](https://serpapi.com/)
-2. Sign up for an account
-3. Get your API key from the dashboard
-4. Copy the key and paste it in `app.js`
+### 4. Credibility Assessment
+- AI analyzes sources to rate each claim's credibility
+- Provides confidence levels and explanations
+- Calculates overall post credibility rating
 
 ## File Structure
 
 ```
-fakenewstwitterdetection/
-├── index.html          # Main HTML file
-├── styles.css          # CSS styles
-├── app.js             # Main JavaScript application
-├── background.js      # Original extension code (for reference)
-├── config.js          # Configuration file (for reference)
-├── popup.html         # Original extension popup (for reference)
-├── popup.js           # Original extension popup script (for reference)
-├── content.js         # Original extension content script (for reference)
-├── manifest.json      # Original extension manifest (for reference)
-└── README.md          # This file
+├── manifest.json          # Extension configuration
+├── background.js          # Service worker for API calls
+├── content.js            # Main content script
+├── image-extractor.js    # Image text extraction
+├── popup.html           # Settings popup interface
+├── popup.js             # Popup functionality
+├── styles.css           # Extension styling
+├── icons/               # Extension icons
+└── README.md           # This file
 ```
 
-## Features Comparison
+## API Usage
 
-| Feature | Extension Version | Web Version |
-|---------|------------------|-------------|
-| Tweet Analysis | ✅ | ✅ |
-| Fact-Checking | ✅ | ✅ |
-| Source Verification | ✅ | ✅ |
-| Credibility Scoring | ✅ | ✅ |
-| Real-time Analysis | ✅ | ✅ |
-| Auto Tweet Detection | ✅ | ❌ |
-| Browser Integration | ✅ | ❌ |
-| Cross-Origin Requests | ✅ | ✅ |
+The extension uses Google Gemini 2.5 Flash API for:
+- Text extraction from images
+- Claim identification and analysis
+- Source finding with grounding
+- Credibility assessment
+
+## Privacy & Security
+
+- API key is pre-configured and embedded in the extension
+- No data is sent to third-party services except Google Gemini
+- All processing happens through Google's secure API endpoints
+- No personal data is collected or stored
 
 ## Troubleshooting
 
-### CORS Issues
-If you encounter CORS (Cross-Origin Resource Sharing) issues:
-- Use a local HTTP server instead of opening the file directly
-- The application is designed to work with local servers
+### Extension Not Working
+- Ensure you're on a supported platform (Twitter, Instagram, Facebook)
+- Try refreshing the page
+- Check browser console for any error messages
 
-### API Key Issues
-- Ensure your API keys are valid and have the necessary permissions
-- Check the browser console for any API-related errors
+### No Fact Check Button Appearing
+- Make sure you're on a supported social media platform
+- Check that the content script is loaded (look for errors in console)
+- Try refreshing the page
 
-### Network Issues
-- Ensure you have a stable internet connection
-- Check if your firewall is blocking the requests
+### API Errors
+- Check your internet connectivity
+- Verify the Google Gemini API is accessible
+- Check browser console for detailed error messages
 
 ## Development
 
-### Adding New Features
-1. Modify `app.js` to add new functionality
-2. Update `styles.css` for styling changes
-3. Modify `index.html` for UI changes
+To modify or extend the extension:
 
-### Testing
-- Use the browser's developer tools to debug
-- Check the console for any JavaScript errors
-- Test with different types of content
+1. Make changes to the source files
+2. Go to `chrome://extensions/`
+3. Click the refresh button on the extension card
+4. Test your changes
 
 ## License
 
-This project is for educational and research purposes. Please ensure you comply with the terms of service of the APIs you use.
+This project is open source and available under the MIT License.
 
 ## Support
 
 For issues or questions:
-1. Check the browser console for error messages
-2. Verify your API keys are correct
-3. Ensure you're using a local HTTP server
-4. Check the network tab for failed requests
+1. Check the troubleshooting section above
+2. Review the browser console for error messages
+3. Ensure all requirements are met (API key, supported platforms)
