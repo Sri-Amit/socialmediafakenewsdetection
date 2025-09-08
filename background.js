@@ -1,960 +1,560 @@
-// Fake News Detector Extension - Background Script
-// Handles API calls and data processing
-
-const GEMINI_API_KEY = 'AIzaSyDaU5J4YTH70BihYb8QbGHjiK6negpX2os'; // Replace with your actual API key
-const SERPAPI_KEY = '2dac97bf1929796a23e3babe9480e1a4e5e060cf9ee9a96a2582c001b7e23623'; // Replace with your actual SerpAPI key
-
-// Listen for messages from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'analyzeTweet') {
-        analyzeTweet(request.content)
-            .then(result => sendResponse(result))
-            .catch(error => {
-                console.error('Analysis error:', error);
-                sendResponse({ success: false, error: error.message });
-            });
-        return true; // Keep the message channel open for async response
-    }
+// Background script for handling API calls and storage
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('Social Media Fact Checker extension installed');
 });
 
-async function analyzeTweet(content) {
-    try {
-        console.log('Analyzing tweet:', content);
+// Handle messages from content scripts
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'factCheck') {
+    handleFactCheck(request.data, sendResponse);
+    return true; // Keep message channel open for async response
+  } else if (request.action === 'ping') {
+    // Respond to ping to verify extension context is valid
+    sendResponse({ status: 'ok' });
+    return false;
+  }
+});
 
-        // Step 1: Generate headline summary using Google Gemini
-        const headline = await generateHeadline(content);
-        console.log('Generated headline:', headline);
-
-        // Step 2: Extract claims for fact-checking
-        const claims = await extractClaims(content);
-        console.log('Extracted claims:', claims);
-
-        // Step 3: Search for credible sources
-        const sources = await searchCredibleSources(content);
-        console.log('Found sources:', sources);
-
-        // Step 4: Analyze each claim individually with its own credibility score
-        const claimAnalyses = await analyzeIndividualClaims(claims, sources);
-        console.log('Individual claim analyses:', claimAnalyses);
-
-        // Step 5: Calculate overall tweet credibility as average of claim scores
-        const overallCredibility = calculateOverallCredibility(claimAnalyses);
-        console.log('Overall credibility score:', overallCredibility);
-
-        // Step 6: Generate detailed analysis
-        const analysis = await generateAnalysis(content, claimAnalyses, sources, overallCredibility);
-        console.log('Analysis generated');
-
-        return {
-            success: true,
-            data: {
-                headline,
-                credibilityScore: overallCredibility,
-                factChecks: claimAnalyses,
-                sources,
-                analysis
-            }
-        };
-
-    } catch (error) {
-        console.error('Error in analyzeTweet:', error);
-        return {
-            success: false,
-            error: error.message
-        };
-    }
-}
-
-async function generateHeadline(content) {
-    try {
-        console.log('Generating headline for:', content);
-        
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `You are a professional news editor. Create a concise, factual headline (maximum 10 words) that summarizes the main claim or statement in the given text. Focus on the most newsworthy or controversial claim.
-
-Create a headline for this tweet: "${content}"
-
-Return only the headline text, no quotes or formatting.`
-                    }]
-                }],
-                generationConfig: {
-                    maxOutputTokens: 50,
-                    temperature: 0.3
-                }
-            })
-        });
-
-        console.log('Headline API response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Headline API error response:', errorText);
-            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('Headline API response data:', data);
-        
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-            throw new Error('Invalid response format from Gemini API');
-        }
-        
-        const headline = data.candidates[0].content.parts[0].text.trim().replace(/^["']|["']$/g, '');
-        console.log('Generated headline:', headline);
-        return headline;
-    } catch (error) {
-        console.error('Error generating headline:', error);
-        throw new Error(`Headline generation failed: ${error.message}`);
-    }
-}
-
-async function extractClaims(content) {
-    try {
-        console.log('Extracting claims from:', content);
-        
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-                            body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `You are a claim extractor. Extract specific factual claims from the given text and return ONLY valid JSON.
-
-CRITICAL INSTRUCTIONS:
-- Return ONLY a valid JSON array
-- No markdown formatting, no code blocks, no explanations
-- No additional text before or after the JSON
-- Each claim should be a string in the array
-- Example format: ["claim1", "claim2", "claim3"]
-
-Text to analyze: "${content}"
-
-JSON response:`
-                        }]
-                    }],
-                    generationConfig: {
-                        maxOutputTokens: 200,
-                        temperature: 0.1
-                    }
-                })
-        });
-
-        console.log('Claims API response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Claims API error response:', errorText);
-            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('Claims API response data:', data);
-        
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-            throw new Error('Invalid response format from Gemini API');
-        }
-        
-        const claimsText = data.candidates[0].content.parts[0].text.trim();
-        console.log('Raw claims text:', claimsText);
-        
-        try {
-            // Try to parse as JSON
-            const claims = JSON.parse(claimsText);
-            if (Array.isArray(claims)) {
-                return claims.filter(claim => claim.trim());
-            } else {
-                throw new Error('Claims response is not an array');
-            }
-        } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            console.error('Failed to parse claims:', claimsText);
-            
-            // Try to clean up the response and parse again
-            const cleanedText = cleanJsonResponse(claimsText);
-            try {
-                const claims = JSON.parse(cleanedText);
-                if (Array.isArray(claims)) {
-                    return claims.filter(claim => claim.trim());
-                }
-            } catch (secondParseError) {
-                console.error('Second JSON parse attempt failed:', secondParseError);
-            }
-            
-            // Fallback: split by lines and clean up
-            const claims = claimsText.split('\n')
-                .map(line => line.trim())
-                .filter(line => line && !line.startsWith('[') && !line.startsWith(']') && !line.startsWith('"'))
-                .map(line => line.replace(/^["']|["']$/g, '').trim())
-                .filter(line => line.length > 0);
-            
-            if (claims.length === 0) {
-                // Last resort: return the original content as a single claim
-                return [content];
-            }
-            return claims;
-        }
-    } catch (error) {
-        console.error('Error extracting claims:', error);
-        throw new Error(`Claims extraction failed: ${error.message}`);
-    }
-}
-
-async function searchCredibleSources(content) {
-    try {
-        console.log('Searching for relevant sources for content:', content);
-        
-        // Step 1: Analyze content to determine subject and context
-        const contentAnalysis = await analyzeContentSubject(content);
-        console.log('Content analysis result:', contentAnalysis);
-        
-        // Step 2: Search for news sources using SerpAPI with broader search
-        const searchQuery = encodeURIComponent(content);
-        const response = await fetch(`https://serpapi.com/search.json?engine=google&q=${searchQuery}&api_key=${SERPAPI_KEY}&num=20&tbm=nws`);
-        
-        if (!response.ok) {
-            throw new Error(`SerpAPI error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (!data.news_results) {
-            return [];
-        }
-
-        // Step 3: Use Gemini AI to analyze and score each source for credibility and relevance
-        const scoredSources = await analyzeAndScoreSourcesWithAI(data.news_results, content, contentAnalysis);
-        console.log('AI-scored sources:', scoredSources);
-        
-        // Return top 5 most credible and relevant sources
-        return scoredSources.slice(0, 5);
-
-    } catch (error) {
-        console.error('Error searching sources:', error);
-        return [];
-    }
-}
-
-async function analyzeContentSubject(content) {
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `You are a content analyzer. Analyze the given content and determine its primary subject matter and context. Return ONLY valid JSON.
-
-CRITICAL INSTRUCTIONS:
-- Return ONLY a valid JSON object
-- No markdown formatting, no code blocks, no explanations
-- No additional text before or after the JSON
-- Use exact values from the specified options
-- Confidence must be a number between 0-100
-
-Required JSON format:
-{
-    "primarySubject": "POLITICS/SPORTS/SCIENCE/HEALTH/BUSINESS/TECHNOLOGY/ENTERTAINMENT/INTERNATIONAL/ENVIRONMENT/EDUCATION/OTHER",
-    "secondarySubjects": ["subject1", "subject2"],
-    "geographicScope": "LOCAL/REGIONAL/NATIONAL/INTERNATIONAL",
-    "temporalContext": "CURRENT_EVENT/HISTORICAL/PREDICTIVE",
-    "credibilityFactors": ["factor1", "factor2"],
-    "confidence": 85
-}
-
-Content to analyze: "${content}"
-
-JSON response:`
-                    }]
-                }],
-                generationConfig: {
-                    maxOutputTokens: 300,
-                    temperature: 0.1
-                }
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        const resultText = data.candidates[0].content.parts[0].text.trim();
-        
-        try {
-            const result = JSON.parse(resultText);
-            return {
-                primarySubject: result.primarySubject || 'OTHER',
-                secondarySubjects: result.secondarySubjects || [],
-                geographicScope: result.geographicScope || 'NATIONAL',
-                temporalContext: result.temporalContext || 'CURRENT_EVENT',
-                credibilityFactors: result.credibilityFactors || [],
-                confidence: result.confidence || 50
-            };
-        } catch (parseError) {
-            console.error('JSON parse error for content analysis:', parseError);
-            
-            // Try to clean up the response and parse again
-            const cleanedText = cleanJsonResponse(resultText);
-            try {
-                const result = JSON.parse(cleanedText);
-                return {
-                    primarySubject: result.primarySubject || 'OTHER',
-                    secondarySubjects: result.secondarySubjects || [],
-                    geographicScope: result.geographicScope || 'NATIONAL',
-                    temporalContext: result.temporalContext || 'CURRENT_EVENT',
-                    credibilityFactors: result.credibilityFactors || [],
-                    confidence: result.confidence || 50
-                };
-            } catch (secondParseError) {
-                console.error('Second JSON parse attempt failed:', secondParseError);
-                // Fallback: basic content analysis
-                return analyzeContentFallback(content);
-            }
-        }
-    } catch (error) {
-        console.error('Error analyzing content subject:', error);
-        return analyzeContentFallback(content);
-    }
-}
-
-function analyzeContentFallback(content) {
-    // Simple keyword-based fallback analysis
-    const text = content.toLowerCase();
-    
-    let primarySubject = 'OTHER';
-    let geographicScope = 'NATIONAL';
-    
-    // Subject detection
-    if (text.includes('president') || text.includes('congress') || text.includes('election') || text.includes('politics')) {
-        primarySubject = 'POLITICS';
-    } else if (text.includes('sport') || text.includes('game') || text.includes('team') || text.includes('player')) {
-        primarySubject = 'SPORTS';
-    } else if (text.includes('study') || text.includes('research') || text.includes('scientist') || text.includes('discovery')) {
-        primarySubject = 'SCIENCE';
-    } else if (text.includes('health') || text.includes('medical') || text.includes('disease') || text.includes('treatment')) {
-        primarySubject = 'HEALTH';
-    } else if (text.includes('business') || text.includes('economy') || text.includes('market') || text.includes('company')) {
-        primarySubject = 'BUSINESS';
-    } else if (text.includes('tech') || text.includes('technology') || text.includes('ai') || text.includes('software')) {
-        primarySubject = 'TECHNOLOGY';
+async function handleFactCheck(data, sendResponse) {
+  try {
+    // Validate input data
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid data provided');
     }
     
-    // Geographic scope detection
-    if (text.includes('world') || text.includes('international') || text.includes('global')) {
-        geographicScope = 'INTERNATIONAL';
-    } else if (text.includes('local') || text.includes('city') || text.includes('town')) {
-        geographicScope = 'LOCAL';
+    const { text, images, platform } = data;
+    
+    // Validate required fields
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      throw new Error('No text content found to analyze');
+    }
+    
+    // Update usage statistics
+    await updateStats();
+    
+    // OPTIMIZATION: Single combined analysis instead of per-claim analysis
+    const factCheckResults = await performCombinedFactCheck(text, images || []);
+    
+    // The combined analysis already includes overall rating
+    sendResponse({
+      success: true,
+      results: {
+        claims: factCheckResults.claims,
+        overallRating: factCheckResults.overallRating
+      }
+    });
+    
+  } catch (error) {
+    console.error('Fact check error:', error);
+    sendResponse({
+      success: false,
+      error: error.message || 'An unexpected error occurred'
+    });
+  }
+}
+
+// OPTIMIZED: Single API call for complete fact-checking
+async function performCombinedFactCheck(text, images) {
+  const apiKey = await getApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API key not configured');
+  }
+  
+  // Sanitize text
+  const sanitizedText = text.replace(/["\\]/g, '\\$&').substring(0, 2000);
+  
+  const prompt = `
+    Analyze this social media post and provide a comprehensive fact-check in a single response.
+    
+    Post Text: "${sanitizedText}"
+    ${images && images.length > 0 ? `Images: ${images.length} image(s) with extracted text` : ''}
+    
+    Please provide a complete fact-check analysis in this JSON format:
+    {
+      "overallRating": 7,
+      "overallConfidence": 0.8,
+      "overallAssessment": "Likely True",
+      "overallExplanation": "Most claims are well-supported by evidence",
+      "claims": [
+        {
+          "claim": "The unemployment rate in the US is 3.5%",
+          "rating": 8,
+          "confidence": 0.9,
+          "explanation": "This statistic is accurate according to recent BLS data",
+          "sources": [
+            {
+              "url": "https://bls.gov/news.release/empsit.nr0.htm",
+              "title": "Bureau of Labor Statistics Employment Situation",
+              "credibilityScore": 10,
+              "relevanceScore": 10,
+              "summary": "Official government employment statistics"
+            }
+          ],
+          "keyEvidence": ["Official BLS data", "Recent employment reports"]
+        }
+      ]
+    }
+    
+    Focus on:
+    1. Extract 2-4 most important factual claims
+    2. Find 1-2 credible sources per claim
+    3. Rate each claim's credibility (1-10)
+    4. Provide clear explanations
+    5. Keep it concise but thorough
+  `;
+  
+  try {
+    const response = await callGeminiAPI(prompt, apiKey);
+    const result = JSON.parse(cleanJsonResponse(response));
+    
+    // Validate and clean result
+    if (!result || typeof result !== 'object') {
+      throw new Error('Invalid response format');
+    }
+    
+    // Ensure we have the expected structure
+    const factCheckResults = {
+      overallRating: {
+        rating: Math.max(1, Math.min(10, Math.round(result.overallRating || 5))),
+        confidence: Math.max(0, Math.min(1, result.overallConfidence || 0.1)),
+        assessment: result.overallAssessment || "Uncertain",
+        explanation: (result.overallExplanation || 'Analysis completed').substring(0, 500)
+      },
+      claims: Array.isArray(result.claims) ? result.claims.map(claim => ({
+        claim: (claim.claim || '').substring(0, 500),
+        sources: Array.isArray(claim.sources) ? claim.sources.slice(0, 3).map(source => ({
+          url: (source.url || '').substring(0, 500),
+          title: (source.title || '').substring(0, 200),
+          credibilityScore: Math.max(1, Math.min(10, Math.round(source.credibilityScore || 5))),
+          relevanceScore: Math.max(1, Math.min(10, Math.round(source.relevanceScore || 5))),
+          summary: (source.summary || '').substring(0, 300)
+        })) : [],
+        credibilityRating: {
+          rating: Math.max(1, Math.min(10, Math.round(claim.rating || 5))),
+          confidence: Math.max(0, Math.min(1, claim.confidence || 0.1)),
+          explanation: (claim.explanation || 'No explanation provided').substring(0, 500),
+          keyEvidence: Array.isArray(claim.keyEvidence) ? claim.keyEvidence.slice(0, 3) : []
+        }
+      })) : []
+    };
+    
+    return factCheckResults;
+  } catch (error) {
+    console.error('Failed to parse combined fact-check JSON:', error);
+    console.log('Raw response:', response);
+    // Return fallback response
+    return {
+      overallRating: {
+        rating: 5,
+        confidence: 0.1,
+        assessment: "Unable to analyze",
+        explanation: "Error occurred during analysis"
+      },
+      claims: [{
+        claim: "Unable to extract claims from this post",
+        sources: [],
+        credibilityRating: {
+          rating: 5,
+          confidence: 0.1,
+          explanation: "Analysis failed",
+          keyEvidence: []
+        }
+      }]
+    };
+  }
+}
+
+async function extractClaims(text, images) {
+  // Validate inputs
+  if (!text || typeof text !== 'string') {
+    throw new Error('Invalid text input');
+  }
+  
+  const apiKey = await getApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API key not configured');
+  }
+  
+  // Sanitize text to prevent prompt injection
+  const sanitizedText = text.replace(/["\\]/g, '\\$&').substring(0, 2000); // Limit length
+  
+  const prompt = `
+    Analyze the following social media post and extract individual factual claims that can be verified.
+    
+    Text: "${sanitizedText}"
+    ${images && images.length > 0 ? `Images: ${images.length} image(s) with extracted text` : ''}
+    
+    Return a JSON array of claims, where each claim is a clear, verifiable statement.
+    Focus on factual claims that can be researched and verified, not opinions or subjective statements.
+    
+    Example format:
+    [
+      "The unemployment rate in the US is 3.5%",
+      "Climate change is caused by human activities",
+      "The COVID-19 vaccine has 95% efficacy"
+    ]
+  `;
+  
+  try {
+    const response = await callGeminiAPI(prompt, apiKey);
+    const claims = JSON.parse(cleanJsonResponse(response));
+    
+    // Validate response
+    if (!Array.isArray(claims)) {
+      throw new Error('Invalid response format');
+    }
+    
+    // Filter and validate claims
+    return claims.filter(claim => 
+      claim && 
+      typeof claim === 'string' && 
+      claim.trim().length > 0 &&
+      claim.trim().length < 500 // Reasonable length limit
+    );
+  } catch (error) {
+    console.error('Failed to parse claims JSON:', error);
+    console.log('Raw response:', response);
+    // Return a fallback response
+    return ["Unable to extract claims from this post"];
+  }
+}
+
+async function findRelevantSources(claim) {
+  // Validate input
+  if (!claim || typeof claim !== 'string' || claim.trim().length === 0) {
+    throw new Error('Invalid claim provided');
+  }
+  
+  const apiKey = await getApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API key not configured');
+  }
+  
+  // Sanitize claim to prevent prompt injection
+  const sanitizedClaim = claim.replace(/["\\]/g, '\\$&').substring(0, 1000);
+  
+  const prompt = `
+    Find relevant, credible sources to verify this claim: "${sanitizedClaim}"
+    
+    Use grounding to search for authoritative sources including:
+    - Government websites (.gov)
+    - Academic institutions (.edu)
+    - Reputable news organizations
+    - Scientific journals
+    - International organizations
+    
+    For each source, provide:
+    - URL
+    - Title
+    - Credibility score (1-10)
+    - Relevance score (1-10)
+    - Brief summary of how it relates to the claim
+    
+    Return as JSON array with this structure:
+    [
+      {
+        "url": "https://example.com",
+        "title": "Source Title",
+        "credibilityScore": 9,
+        "relevanceScore": 8,
+        "summary": "Brief description of relevance"
+      }
+    ]
+  `;
+  
+  try {
+    const response = await callGeminiAPI(prompt, apiKey);
+    const sources = JSON.parse(cleanJsonResponse(response));
+    
+    // Validate response
+    if (!Array.isArray(sources)) {
+      throw new Error('Invalid response format');
+    }
+    
+    // Validate and clean sources
+    return sources.filter(source => {
+      return source && 
+             typeof source === 'object' &&
+             source.url && 
+             source.title &&
+             typeof source.credibilityScore === 'number' &&
+             typeof source.relevanceScore === 'number' &&
+             source.credibilityScore >= 1 && source.credibilityScore <= 10 &&
+             source.relevanceScore >= 1 && source.relevanceScore <= 10;
+    }).map(source => ({
+      url: source.url.substring(0, 500), // Limit URL length
+      title: source.title.substring(0, 200), // Limit title length
+      credibilityScore: Math.round(source.credibilityScore),
+      relevanceScore: Math.round(source.relevanceScore),
+      summary: (source.summary || '').substring(0, 300) // Limit summary length
+    }));
+  } catch (error) {
+    console.error('Failed to parse sources JSON:', error);
+    console.log('Raw response:', response);
+    // Return a fallback response
+    return [{
+      url: "https://example.com",
+      title: "Unable to find sources",
+      credibilityScore: 1,
+      relevanceScore: 1,
+      summary: "Error occurred while searching for sources"
+    }];
+  }
+}
+
+async function assessClaimCredibility(claim, sources) {
+  // Validate inputs
+  if (!claim || typeof claim !== 'string' || claim.trim().length === 0) {
+    throw new Error('Invalid claim provided');
+  }
+  
+  if (!Array.isArray(sources)) {
+    sources = [];
+  }
+  
+  const apiKey = await getApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API key not configured');
+  }
+  
+  // Sanitize claim
+  const sanitizedClaim = claim.replace(/["\\]/g, '\\$&').substring(0, 1000);
+  
+  // Build sources text safely
+  const sourcesText = sources.map(s => {
+    if (!s || typeof s !== 'object') return '';
+    return `Source: ${(s.title || '').substring(0, 100)}\nURL: ${(s.url || '').substring(0, 100)}\nCredibility: ${s.credibilityScore || 1}/10\nRelevance: ${s.relevanceScore || 1}/10\nSummary: ${(s.summary || '').substring(0, 200)}`;
+  }).filter(text => text.length > 0).join('\n\n');
+  
+  const prompt = `
+    Based on the following sources, assess the credibility of this claim: "${sanitizedClaim}"
+    
+    Sources:
+    ${sourcesText || 'No sources available'}
+    
+    Rate the claim's credibility on a scale of 1-10 where:
+    1-3: Likely false or misleading
+    4-6: Uncertain or mixed evidence
+    7-10: Likely true or well-supported
+    
+    Provide your assessment in this JSON format:
+    {
+      "rating": 8,
+      "confidence": 0.85,
+      "explanation": "Detailed explanation of the assessment",
+      "keyEvidence": ["Most important supporting evidence points"]
+    }
+  `;
+  
+  try {
+    const response = await callGeminiAPI(prompt, apiKey);
+    const result = JSON.parse(cleanJsonResponse(response));
+    
+    // Validate and clean result
+    if (!result || typeof result !== 'object') {
+      throw new Error('Invalid response format');
     }
     
     return {
-        primarySubject: primarySubject,
-        secondarySubjects: [],
-        geographicScope: geographicScope,
-        temporalContext: 'CURRENT_EVENT',
-        credibilityFactors: ['keyword_analysis'],
-        confidence: 60
+      rating: Math.max(1, Math.min(10, Math.round(result.rating || 5))),
+      confidence: Math.max(0, Math.min(1, result.confidence || 0.1)),
+      explanation: (result.explanation || 'No explanation provided').substring(0, 500),
+      keyEvidence: Array.isArray(result.keyEvidence) ? 
+        result.keyEvidence.filter(item => typeof item === 'string').slice(0, 5) : 
+        []
     };
+  } catch (error) {
+    console.error('Failed to parse credibility JSON:', error);
+    console.log('Raw response:', response);
+    // Return a fallback response
+    return {
+      rating: 5,
+      confidence: 0.1,
+      explanation: "Unable to assess credibility due to parsing error",
+      keyEvidence: ["Assessment failed"]
+    };
+  }
 }
 
-function getSubjectSpecificCredibleSources(contentAnalysis) {
-    const { primarySubject, geographicScope } = contentAnalysis;
-    
-    // Base credible sources that are generally reliable across subjects
-    const baseSources = {
-        'reuters.com': { credibility: 95, subjects: ['ALL'], scope: 'INTERNATIONAL' },
-        'ap.org': { credibility: 95, subjects: ['ALL'], scope: 'INTERNATIONAL' },
-        'bbc.com': { credibility: 90, subjects: ['ALL'], scope: 'INTERNATIONAL' },
-        'npr.org': { credibility: 88, subjects: ['ALL'], scope: 'NATIONAL' }
-    };
-    
-    // Subject-specific credible sources
-    const subjectSources = {
-        'POLITICS': {
-            'nytimes.com': { credibility: 88, subjects: ['POLITICS'], scope: 'NATIONAL' },
-            'washingtonpost.com': { credibility: 87, subjects: ['POLITICS'], scope: 'NATIONAL' },
-            'wsj.com': { credibility: 85, subjects: ['POLITICS', 'BUSINESS'], scope: 'NATIONAL' },
-            'politico.com': { credibility: 82, subjects: ['POLITICS'], scope: 'NATIONAL' },
-            'thehill.com': { credibility: 80, subjects: ['POLITICS'], scope: 'NATIONAL' },
-            'rollcall.com': { credibility: 78, subjects: ['POLITICS'], scope: 'NATIONAL' }
-        },
-        'SPORTS': {
-            'espn.com': { credibility: 85, subjects: ['SPORTS'], scope: 'INTERNATIONAL' },
-            'sportsillustrated.com': { credibility: 82, subjects: ['SPORTS'], scope: 'INTERNATIONAL' },
-            'bleacherreport.com': { credibility: 75, subjects: ['SPORTS'], scope: 'INTERNATIONAL' },
-            'cbssports.com': { credibility: 78, subjects: ['SPORTS'], scope: 'INTERNATIONAL' },
-            'nbcnews.com/sports': { credibility: 80, subjects: ['SPORTS'], scope: 'INTERNATIONAL' }
-        },
-        'SCIENCE': {
-            'nature.com': { credibility: 98, subjects: ['SCIENCE'], scope: 'INTERNATIONAL' },
-            'science.org': { credibility: 98, subjects: ['SCIENCE'], scope: 'INTERNATIONAL' },
-            'cell.com': { credibility: 95, subjects: ['SCIENCE'], scope: 'INTERNATIONAL' },
-            'thelancet.com': { credibility: 95, subjects: ['SCIENCE', 'HEALTH'], scope: 'INTERNATIONAL' },
-            'nejm.org': { credibility: 95, subjects: ['SCIENCE', 'HEALTH'], scope: 'INTERNATIONAL' },
-            'scientificamerican.com': { credibility: 88, subjects: ['SCIENCE'], scope: 'INTERNATIONAL' },
-            'phys.org': { credibility: 85, subjects: ['SCIENCE'], scope: 'INTERNATIONAL' }
-        },
-        'HEALTH': {
-            'who.int': { credibility: 98, subjects: ['HEALTH'], scope: 'INTERNATIONAL' },
-            'cdc.gov': { credibility: 98, subjects: ['HEALTH'], scope: 'NATIONAL' },
-            'nih.gov': { credibility: 95, subjects: ['HEALTH', 'SCIENCE'], scope: 'NATIONAL' },
-            'mayoclinic.org': { credibility: 92, subjects: ['HEALTH'], scope: 'NATIONAL' },
-            'webmd.com': { credibility: 80, subjects: ['HEALTH'], scope: 'NATIONAL' },
-            'healthline.com': { credibility: 78, subjects: ['HEALTH'], scope: 'NATIONAL' }
-        },
-        'BUSINESS': {
-            'wsj.com': { credibility: 90, subjects: ['BUSINESS'], scope: 'INTERNATIONAL' },
-            'bloomberg.com': { credibility: 88, subjects: ['BUSINESS'], scope: 'INTERNATIONAL' },
-            'ft.com': { credibility: 87, subjects: ['BUSINESS'], scope: 'INTERNATIONAL' },
-            'economist.com': { credibility: 85, subjects: ['BUSINESS'], scope: 'INTERNATIONAL' },
-            'forbes.com': { credibility: 80, subjects: ['BUSINESS'], scope: 'INTERNATIONAL' },
-            'cnbc.com': { credibility: 78, subjects: ['BUSINESS'], scope: 'NATIONAL' }
-        },
-        'TECHNOLOGY': {
-            'techcrunch.com': { credibility: 82, subjects: ['TECHNOLOGY'], scope: 'INTERNATIONAL' },
-            'wired.com': { credibility: 85, subjects: ['TECHNOLOGY'], scope: 'INTERNATIONAL' },
-            'ars-technica.com': { credibility: 83, subjects: ['TECHNOLOGY'], scope: 'INTERNATIONAL' },
-            'theverge.com': { credibility: 80, subjects: ['TECHNOLOGY'], scope: 'INTERNATIONAL' },
-            'engadget.com': { credibility: 78, subjects: ['TECHNOLOGY'], scope: 'INTERNATIONAL' },
-            'cnet.com': { credibility: 75, subjects: ['TECHNOLOGY'], scope: 'NATIONAL' }
-        },
-        'INTERNATIONAL': {
-            'reuters.com': { credibility: 95, subjects: ['INTERNATIONAL'], scope: 'INTERNATIONAL' },
-            'bbc.com': { credibility: 90, subjects: ['INTERNATIONAL'], scope: 'INTERNATIONAL' },
-            'ap.org': { credibility: 95, subjects: ['INTERNATIONAL'], scope: 'INTERNATIONAL' },
-            'aljazeera.com': { credibility: 80, subjects: ['INTERNATIONAL'], scope: 'INTERNATIONAL' },
-            'dw.com': { credibility: 85, subjects: ['INTERNATIONAL'], scope: 'INTERNATIONAL' },
-            'france24.com': { credibility: 82, subjects: ['INTERNATIONAL'], scope: 'INTERNATIONAL' }
+function calculateOverallCredibility(factCheckResults) {
+  if (factCheckResults.length === 0) {
+    return { rating: 0, confidence: 0, explanation: "No claims to evaluate" };
+  }
+  
+  // Weighted average based on confidence and number of sources
+  let totalWeight = 0;
+  let weightedSum = 0;
+  
+  factCheckResults.forEach(result => {
+    const weight = result.credibilityRating.confidence * result.sources.length;
+    weightedSum += result.credibilityRating.rating * weight;
+    totalWeight += weight;
+  });
+  
+  const overallRating = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  
+  // Determine overall assessment
+  let assessment = "Uncertain";
+  if (overallRating >= 7) assessment = "Likely True";
+  else if (overallRating <= 3) assessment = "Likely False";
+  else assessment = "Mixed Evidence";
+  
+  return {
+    rating: Math.round(overallRating * 10) / 10,
+    confidence: Math.min(totalWeight / factCheckResults.length, 1),
+    assessment,
+    explanation: `Based on ${factCheckResults.length} claim(s) with ${Math.round(totalWeight)} total source weight`
+  };
+}
+
+async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
+  const maxRetries = 3;
+  const baseDelay = 2000; // 2 seconds base delay
+  
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 1,
+          topP: 0.8,
+          maxOutputTokens: 2048,
         }
-    };
-    
-    // Combine base sources with subject-specific sources
-    const allSources = { ...baseSources };
-    
-    if (subjectSources[primarySubject]) {
-        Object.assign(allSources, subjectSources[primarySubject]);
-    }
-    
-    // Add secondary subject sources if they exist
-    contentAnalysis.secondarySubjects.forEach(subject => {
-        if (subjectSources[subject]) {
-            Object.assign(allSources, subjectSources[subject]);
-        }
+      })
     });
     
-    return allSources;
-}
-
-async function analyzeAndScoreSourcesWithAI(newsResults, content, contentAnalysis) {
-    try {
-        console.log('Analyzing sources with AI for content:', content);
-        
-        // Prepare sources data for AI analysis
-        const sourcesData = newsResults.map(result => ({
-            title: result.title,
-            url: result.link,
-            snippet: result.snippet,
-            source: new URL(result.link).hostname.replace('www.', ''),
-            date: result.date
-        }));
-        
-        // Use Gemini AI to analyze and score all sources
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `You are a source credibility analyst. Analyze the given news sources and score them for credibility and relevance to the content being fact-checked.
-
-CRITICAL INSTRUCTIONS:
-- Return ONLY a valid JSON array
-- No markdown formatting, no code blocks, no explanations
-- No additional text before or after the JSON
-- All scores must be numbers between 0-100
-- finalScore must be calculated as (credibilityScore * 0.7) + (relevanceScore * 0.3)
-
-Content being fact-checked: "${content}"
-Content analysis: ${JSON.stringify(contentAnalysis)}
-
-Sources to analyze: ${JSON.stringify(sourcesData)}
-
-For each source, provide:
-- credibilityScore: 0-100 (based on source reputation, domain authority, journalistic standards)
-- relevanceScore: 0-100 (how relevant the source is to the specific content topic)
-- reasoning: brief explanation for the scores
-- finalScore: weighted average (70% credibility + 30% relevance)
-
-Required JSON format:
-[
-    {
-        "title": "Article Title",
-        "url": "https://source.com/article",
-        "snippet": "Article summary",
-        "source": "source.com",
-        "credibilityScore": 85,
-        "relevanceScore": 90,
-        "reasoning": "Highly credible news organization with strong track record in this subject area",
-        "finalScore": 87
-    }
-]
-
-Consider these factors for credibility:
-- Established news organizations (Reuters, AP, BBC, major newspapers)
-- Academic institutions (.edu domains)
-- Government sources (.gov domains)
-- Reputable magazines and journals
-- Avoid: blogs, social media, opinion sites, unknown sources
-
-Consider these factors for relevance:
-- Subject matter expertise
-- Geographic relevance
-- Temporal relevance (recent vs old sources)
-- Content depth and quality
-
-JSON response:`
-                    }]
-                }],
-                generationConfig: {
-                    maxOutputTokens: 2000,
-                    temperature: 0.1
-                }
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        const resultText = data.candidates[0].content.parts[0].text.trim();
-        
-        try {
-            // Try to parse as JSON
-            const scoredSources = JSON.parse(resultText);
-            if (Array.isArray(scoredSources)) {
-                // Sort by final score descending and filter out low-quality sources
-                return scoredSources
-                    .filter(source => source.finalScore >= 40) // Only include reasonably credible sources
-                    .sort((a, b) => b.finalScore - a.finalScore);
-            } else {
-                throw new Error('AI response is not an array');
-            }
-        } catch (parseError) {
-            console.error('JSON parse error for AI source analysis:', parseError);
-            console.error('Failed to parse AI response:', resultText);
-            
-            // Try to clean up the response and parse again
-            const cleanedText = cleanJsonResponse(resultText);
-            try {
-                const scoredSources = JSON.parse(cleanedText);
-                if (Array.isArray(scoredSources)) {
-                    return scoredSources
-                        .filter(source => source.finalScore >= 40)
-                        .sort((a, b) => b.finalScore - a.finalScore);
-                }
-            } catch (secondParseError) {
-                console.error('Second JSON parse attempt failed:', secondParseError);
-            }
-            
-            // Fallback: use the old scoring method
-            console.log('Falling back to traditional scoring method');
-            return fallbackScoreSources(newsResults, contentAnalysis);
-        }
-    } catch (error) {
-        console.error('Error analyzing sources with AI:', error);
-        // Fallback to traditional scoring
-        return fallbackScoreSources(newsResults, contentAnalysis);
-    }
-}
-
-function fallbackScoreSources(newsResults, contentAnalysis) {
-    // Fallback scoring method using basic heuristics
-    return newsResults
-        .map(result => {
-            const domain = new URL(result.link).hostname.replace('www.', '');
-            
-            let credibilityScore = 40; // Base score for unknown sources
-            let relevanceScore = 50; // Base relevance score
-            
-            // Basic credibility heuristics
-            if (domain.includes('.edu') || domain.includes('.gov')) {
-                credibilityScore += 30;
-            } else if (domain.includes('reuters') || domain.includes('ap.org') || domain.includes('bbc')) {
-                credibilityScore += 40;
-            } else if (domain.includes('nytimes') || domain.includes('washingtonpost') || domain.includes('wsj')) {
-                credibilityScore += 35;
-            } else if (domain.includes('news') || domain.includes('times') || domain.includes('post')) {
-                credibilityScore += 15;
-            }
-            
-            // Basic relevance scoring
-            if (result.title.toLowerCase().includes(contentAnalysis.primarySubject.toLowerCase())) {
-                relevanceScore += 20;
-            }
-            
-            const finalScore = (credibilityScore * 0.7) + (relevanceScore * 0.3);
-            
-            return {
-                title: result.title,
-                url: result.link,
-                snippet: result.snippet,
-                source: domain,
-                credibilityScore: Math.round(credibilityScore),
-                relevanceScore: Math.round(relevanceScore),
-                reasoning: 'Fallback scoring method used',
-                finalScore: Math.round(finalScore)
-            };
-        })
-        .filter(result => result.finalScore >= 40)
-        .sort((a, b) => b.finalScore - a.finalScore);
-}
-
-async function analyzeIndividualClaims(claims, sources) {
-    try {
-        const claimAnalyses = [];
-        
-        for (const claim of claims) {
-            if (!claim.trim()) continue;
-            
-            console.log('Analyzing individual claim:', claim);
-            
-            // Step 1: Get fact-check verdict for the claim
-            const factCheck = await getFactCheckVerdict(claim, sources);
-            console.log('Fact-check result:', factCheck);
-            
-            // Step 2: Calculate individual claim credibility score
-            const claimCredibility = calculateClaimCredibility(factCheck, sources);
-            console.log('Claim credibility score:', claimCredibility);
-            
-            // Step 3: Store complete claim analysis
-            claimAnalyses.push({
-                claim: claim,
-                verdict: factCheck.verdict,
-                confidence: factCheck.confidence,
-                reasoning: factCheck.reasoning,
-                credibilityScore: claimCredibility,
-                sourcesUsed: sources.length > 0 ? sources.slice(0, 3) : [] // Limit to top 3 sources per claim
-            });
-        }
-        
-        return claimAnalyses;
-    } catch (error) {
-        console.error('Error analyzing individual claims:', error);
-        throw new Error(`Individual claim analysis failed: ${error.message}`);
-    }
-}
-
-async function getFactCheckVerdict(claim, sources) {
-    try {
-        console.log('Getting fact-check verdict for claim:', claim);
-        
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `You are a fact-checker. Analyze the given claim against the provided sources. 
-
-CRITICAL INSTRUCTIONS:
-- Return ONLY a valid JSON object
-- No markdown formatting, no code blocks, no explanations
-- No additional text before or after the JSON
-- verdict must be exactly "TRUE", "FALSE", or "UNCLEAR"
-- confidence must be an integer from 0-100
-- reasoning must be a string in quotes
-
-Required JSON format:
-{
-    "verdict": "TRUE",
-    "confidence": 85,
-    "reasoning": "This claim is supported by credible sources"
-}
-
-Valid verdicts: "TRUE", "FALSE", or "UNCLEAR"
-Confidence: integer from 0-100
-Reasoning: brief explanation in quotes
-
-Claim to check: "${claim}"
-Available sources: ${JSON.stringify(sources)}
-
-JSON response:`
-                    }]
-                }],
-                generationConfig: {
-                    maxOutputTokens: 300,
-                    temperature: 0.1
-                }
-            })
-        });
-
-        console.log('Fact-check API response status:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Fact-check API error response:', errorText);
-            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('Fact-check API response data:', data);
-        
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-            throw new Error('Invalid response format from Gemini API');
-        }
-        
-        const resultText = data.candidates[0].content.parts[0].text.trim();
-        console.log('Raw fact-check result text:', resultText);
-        
-        try {
-            // Try to parse as JSON
-            const result = JSON.parse(resultText);
-            console.log('Successfully parsed JSON result:', result);
-            
-            // Validate the result structure
-            if (typeof result !== 'object' || result === null) {
-                throw new Error('Result is not an object');
-            }
-            
-            return {
-                verdict: result.verdict || 'UNCLEAR',
-                confidence: result.confidence || 50,
-                reasoning: result.reasoning || 'Unable to verify'
-            };
-        } catch (parseError) {
-            console.error('JSON parse error for fact-check:', parseError);
-            console.error('Failed to parse result text:', resultText);
-            
-            // Try to clean up the response and parse again
-            const cleanedText = cleanJsonResponse(resultText);
-            try {
-                const result = JSON.parse(cleanedText);
-                console.log('Successfully parsed cleaned JSON result:', result);
-                
-                if (typeof result === 'object' && result !== null) {
-                    return {
-                        verdict: result.verdict || 'UNCLEAR',
-                        confidence: result.confidence || 50,
-                        reasoning: result.reasoning || 'Unable to verify'
-                    };
-                }
-            } catch (secondParseError) {
-                console.error('Second JSON parse attempt failed:', secondParseError);
-            }
-            
-            // Try to extract information from malformed JSON
-            const extractedResult = extractFromMalformedJSON(resultText);
-            if (extractedResult) {
-                console.log('Successfully extracted from malformed JSON:', extractedResult);
-                return extractedResult;
-            }
-            
-            return {
-                verdict: 'UNCLEAR',
-                confidence: 50,
-                reasoning: `Analysis failed - invalid response format. Raw response: ${resultText.substring(0, 100)}...`
-            };
-        }
-    } catch (error) {
-        console.error('Error getting fact-check verdict:', error);
-        return {
-            verdict: 'UNCLEAR',
-            confidence: 50,
-            reasoning: `Fact-checking failed: ${error.message}`
-        };
-    }
-}
-
-function extractFromMalformedJSON(text) {
-    try {
-        // Try to extract verdict
-        const verdictMatch = text.match(/"verdict"\s*:\s*"([^"]+)"/i);
-        const verdict = verdictMatch ? verdictMatch[1].toUpperCase() : null;
-        
-        // Try to extract confidence
-        const confidenceMatch = text.match(/"confidence"\s*:\s*(\d+)/i);
-        const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : null;
-        
-        // Try to extract reasoning
-        const reasoningMatch = text.match(/"reasoning"\s*:\s*"([^"]+)"/i);
-        const reasoning = reasoningMatch ? reasoningMatch[1] : null;
-        
-        // Validate verdict
-        if (verdict && ['TRUE', 'FALSE', 'UNCLEAR'].includes(verdict)) {
-            return {
-                verdict: verdict,
-                confidence: confidence && confidence >= 0 && confidence <= 100 ? confidence : 50,
-                reasoning: reasoning || 'Extracted from malformed response'
-            };
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Error extracting from malformed JSON:', error);
-        return null;
-    }
-}
-
-//FOR LATER, may need some improvements
-function calculateClaimCredibility(factCheck, sources) {
-    let baseScore = 50; // Neutral starting point
-    
-    // Calculate base score based on verdict and confidence
-    if (factCheck.verdict === 'TRUE') {
-        baseScore = 80 + (factCheck.confidence / 100) * 20; // 80-100 range
-    } else if (factCheck.verdict === 'FALSE') {
-        baseScore = 20 - (factCheck.confidence / 100) * 20; // 0-20 range
-    } else {
-        baseScore = 40 + (factCheck.confidence / 100) * 20; // 40-60 range for unclear
+    if (!response.ok) {
+      if (response.status === 429 && retryCount < maxRetries) {
+        // Rate limit hit - wait and retry with exponential backoff
+        const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000;
+        console.log(`Rate limit hit, retrying in ${Math.round(delay)}ms (attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return callGeminiAPI(prompt, apiKey, retryCount + 1);
+      }
+      
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
-    // Apply source bonus to this specific claim
-    let sourceBonus = 0;
-    if (sources.length > 0) {
-        // Each source adds a small bonus, but cap it to prevent over-inflation
-        sourceBonus = Math.min(sources.length * 2, 10); // Max 10 points bonus per claim
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+  } catch (error) {
+    if (error.message.includes('429') && retryCount < maxRetries) {
+      // Network error with 429 - retry with exponential backoff
+      const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000;
+      console.log(`Network error, retrying in ${Math.round(delay)}ms (attempt ${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return callGeminiAPI(prompt, apiKey, retryCount + 1);
     }
-    
-    // Calculate final claim score
-    const finalScore = baseScore + sourceBonus;
-    
-    // Ensure score stays within 0-100 range
-    return Math.max(0, Math.min(100, Math.round(finalScore)));
+    throw error;
+  }
 }
 
-function calculateOverallCredibility(claimAnalyses) {
-    if (claimAnalyses.length === 0) {
-        return 50; // Neutral score if no claims to analyze
+function cleanJsonResponse(response) {
+  // Remove markdown code blocks and clean up the response
+  let cleaned = response.trim();
+  
+  // Remove ```json and ``` markers
+  cleaned = cleaned.replace(/^```json\s*/i, '');
+  cleaned = cleaned.replace(/```\s*$/i, '');
+  cleaned = cleaned.replace(/^```\s*/i, '');
+  
+  // Remove any leading/trailing whitespace
+  cleaned = cleaned.trim();
+  
+  // If the response doesn't start with [ or {, try to find the JSON part
+  if (!cleaned.startsWith('[') && !cleaned.startsWith('{')) {
+    const jsonMatch = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[1];
     }
+  }
+  
+  // Additional cleaning for common JSON issues
+  try {
+    // Try to parse and re-stringify to validate and clean
+    const parsed = JSON.parse(cleaned);
+    return JSON.stringify(parsed);
+  } catch (error) {
+    // If parsing fails, try to fix common issues
+    console.warn('JSON parsing failed, attempting to fix:', error.message);
     
-    // Calculate average of all individual claim credibility scores
-    const totalCredibility = claimAnalyses.reduce((sum, analysis) => {
-        return sum + analysis.credibilityScore;
-    }, 0);
-    
-    const averageCredibility = totalCredibility / claimAnalyses.length;
-    
-    // Return rounded score between 0-100
-    return Math.max(0, Math.min(100, Math.round(averageCredibility)));
-}
-
-async function generateAnalysis(content, claimAnalyses, sources, credibilityScore) {
-    try {
-        console.log('Generating analysis for content:', content);
-        
-        // Prepare source summary for analysis
-        const sourceSummary = sources.map(source => ({
-            source: source.source,
-            credibilityScore: source.credibilityScore,
-            relevanceScore: source.relevanceScore,
-            finalScore: source.finalScore,
-            reasoning: source.reasoning
-        }));
-        
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `You are a fact-checking analyst. Provide a brief, objective analysis of the credibility of the given content based on the individual claim analyses, overall credibility score, and AI-evaluated sources. Keep it under 150 words.
-
-Analyze this content: "${content}"
-                        
-Individual Claim Analyses: ${JSON.stringify(claimAnalyses)}
-Overall Credibility Score: ${credibilityScore}%
-AI-Evaluated Sources: ${JSON.stringify(sourceSummary)}
-
-Provide a clear, concise analysis that explains the overall credibility, highlights any notable individual claims, and mentions the quality of sources used for verification.`
-                    }]
-                }],
-                generationConfig: {
-                    maxOutputTokens: 200,
-                    temperature: 0.3
-                }
-            })
-        });
-
-        console.log('Analysis API response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Analysis API error response:', errorText);
-            throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('Analysis API response data:', data);
-        
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-            throw new Error('Invalid response format from Gemini API');
-        }
-        
-        const analysis = data.candidates[0].content.parts[0].text.trim();
-        console.log('Generated analysis:', analysis);
-        return analysis;
-    } catch (error) {
-        console.error('Error generating analysis:', error);
-        throw new Error(`Analysis generation failed: ${error.message}`);
-    }
-}
-
-// Helper function to clean up JSON responses from Gemini
-function cleanJsonResponse(text) {
-    // Remove markdown code blocks
-    text = text.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
-    
-    // Remove any text before the first {
-    const firstBrace = text.indexOf('[');
-    if (firstBrace > 0) {
-        text = text.substring(firstBrace);
-    }
-    
-    // Remove any text after the last }
-    const lastBrace = text.lastIndexOf(']');
-    if (lastBrace > 0 && lastBrace < text.length - 1) {
-        text = text.substring(0, lastBrace + 1);
-    }
-    
-    // Remove common prefixes/suffixes
-    text = text.replace(/^Here's the JSON:\s*/i, '');
-    text = text.replace(/^The JSON response is:\s*/i, '');
-    text = text.replace(/^JSON:\s*/i, '');
-    text = text.replace(/^Response:\s*/i, '');
-    text = text.replace(/^Claims:\s*/i, '');
-    text = text.replace(/^Extracted claims:\s*/i, '');
-    
-    // Clean up any remaining whitespace
-    text = text.trim();
-    
-    return text;
-}
-
-// Handle installation
-chrome.runtime.onInstalled.addListener(() => {
-    console.log('Fake News Detector extension installed');
-    
-    // Set default settings
-    chrome.storage.sync.set({
-        autoAnalyze: false
+    // Fix common issues:
+    // 1. Unescaped quotes in strings
+    cleaned = cleaned.replace(/([^\\])"([^"]*)"([^,}\]]*)/g, (match, before, content, after) => {
+      // Only fix if it looks like an unescaped quote in a string value
+      if (before.match(/[:\s]/) && after.match(/[,}\]]/)) {
+        const escapedContent = content.replace(/"/g, '\\"');
+        return `${before}"${escapedContent}"${after}`;
+      }
+      return match;
     });
-}); 
+    
+    // 2. Remove trailing commas
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+    
+    // 3. Fix missing quotes around keys
+    cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+    
+    // 4. Remove any non-JSON content that might be mixed in
+    const lines = cleaned.split('\n');
+    const jsonLines = [];
+    let inJson = false;
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        inJson = true;
+      }
+      if (inJson) {
+        jsonLines.push(line);
+        if (trimmed.endsWith(']') || trimmed.endsWith('}')) {
+          break;
+        }
+      }
+    }
+    
+    if (jsonLines.length > 0) {
+      cleaned = jsonLines.join('\n');
+    }
+    
+    return cleaned;
+  }
+}
+
+async function getApiKey() {
+  // Use the provided API key directly
+  return 'AIzaSyCsOPdyQQWuO-Eby6L7scmZ4SJSx_f5tfo';
+}
+
+async function updateStats() {
+  try {
+    const result = await chrome.storage.local.get(['stats']);
+    const stats = result.stats || { totalChecks: 0, todayChecks: 0, lastCheckDate: null };
+    
+    const today = new Date().toDateString();
+    
+    // Reset today's count if it's a new day
+    if (stats.lastCheckDate !== today) {
+      stats.todayChecks = 0;
+      stats.lastCheckDate = today;
+    }
+    
+    // Increment counters
+    stats.totalChecks += 1;
+    stats.todayChecks += 1;
+    
+    await chrome.storage.local.set({ stats });
+  } catch (error) {
+    console.error('Error updating stats:', error);
+  }
+}

@@ -1,75 +1,331 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fake News Detector</title>
-    <link rel="stylesheet" href="popup.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Social Media Fact Checker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 400px;
+      min-height: 500px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+
+    .container {
+      padding: 20px;
+      background: white;
+      margin: 10px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: #718096;
+      font-size: 14px;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #4a5568;
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-group input[type="password"] {
+      font-family: monospace;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f7fafc;
+      color: #4a5568;
+      border: 2px solid #e2e8f0;
+    }
+
+    .btn-secondary:hover {
+      background: #edf2f7;
+      border-color: #cbd5e0;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .status.success {
+      background: #f0fff4;
+      color: #22543d;
+      border: 1px solid #9ae6b4;
+    }
+
+    .status.error {
+      background: #fed7d7;
+      color: #742a2a;
+      border: 1px solid #feb2b2;
+    }
+
+    .status.warning {
+      background: #fefcbf;
+      color: #744210;
+      border: 1px solid #f6e05e;
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: #718096;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .help-text a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .help-text a:hover {
+      text-decoration: underline;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      background: #f7fafc;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 20px;
+      font-weight: 700;
+      color: #2d3748;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #718096;
+      margin-top: 4px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .footer p {
+      font-size: 12px;
+      color: #718096;
+    }
+
+    .icon {
+      width: 20px;
+      height: 20px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin: -10px 0 0 -10px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔍 Fake News Detector</h1>
-            <p>Analyze Twitter posts for credibility</p>
-        </div>
-        
-        <div class="main-content">
-            <div class="input-section">
-                <textarea id="tweetText" placeholder="Paste tweet content here or click 'Analyze Current Tweet'"></textarea>
-                <div class="button-group">
-                    <button id="analyzeCurrent" class="btn primary">Analyze Current Tweet</button>
-                    <button id="analyzePasted" class="btn secondary">Analyze Pasted Text</button>
-                </div>
-            </div>
-            
-            <div class="results-section" id="results" style="display: none;">
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <p>Analyzing tweet...</p>
-                </div>
-                
-                <div class="analysis-results" id="analysisResults" style="display: none;">
-                    <div class="result-card">
-                        <h3>📰 Headline Summary</h3>
-                        <p id="headline"></p>
-                    </div>
-                    
-                    <div class="result-card">
-                        <h3>🎯 Credibility Score</h3>
-                        <div class="score-container">
-                            <div class="score-bar">
-                                <div class="score-fill" id="scoreFill"></div>
-                            </div>
-                            <span id="scoreText"></span>
-                        </div>
-                    </div>
-                    
-                    <div class="result-card">
-                        <h3>🔍 Fact Check Results</h3>
-                        <div id="factCheckResults"></div>
-                    </div>
-                    
-                    <div class="result-card">
-                        <h3>📊 Analysis Details</h3>
-                        <div id="analysisDetails"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <div class="settings">
-                <label>
-                    <input type="checkbox" id="autoAnalyze"> Auto-analyze tweets
-                </label>
-            </div>
-            <div class="api-status" id="apiStatus">
-                <span class="status-dot"></span>
-                <span id="statusText">Ready</span>
-            </div>
-        </div>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 Fact Checker</h1>
+      <p>Verify social media posts with AI-powered fact checking</p>
     </div>
-    
-    <script src="popup.js"></script>
+
+    <div id="status" class="status hidden"></div>
+
+    <div class="section">
+      <h3>
+        <span class="icon">✅</span>
+        Status
+      </h3>
+      
+      <div class="status success">
+        <strong>Ready to Fact-Check!</strong><br>
+        API configured and ready to use.
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>
+        <span class="icon">📊</span>
+        Usage Statistics
+      </h3>
+      
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-number" id="totalChecks">0</div>
+          <div class="stat-label">Total Checks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="todayChecks">0</div>
+          <div class="stat-label">Today</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>
+        <span class="icon">⚙️</span>
+        Settings
+      </h3>
+      
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="autoCheck"> Auto-check new posts
+        </label>
+        <div class="help-text">Automatically fact-check posts as you scroll</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="showImages"> Extract text from images
+        </label>
+        <div class="help-text">Use AI to read text from images in posts (uses more API calls)</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="fastMode"> Fast mode (text only)
+        </label>
+        <div class="help-text">Skip image processing for faster, cheaper fact-checking</div>
+      </div>
+
+      <button id="saveSettings" class="btn btn-primary">Save Settings</button>
+    </div>
+
+    <div class="section">
+      <h3>
+        <span class="icon">ℹ️</span>
+        How to Use
+      </h3>
+      
+      <div class="help-text">
+        <ol style="margin-left: 16px; margin-top: 8px;">
+          <li>Visit Twitter, Instagram, or Facebook</li>
+          <li>Click the "🔍 Fact Check" button on any post</li>
+          <li>Wait for AI analysis and results</li>
+          <li>Review credibility ratings and sources</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Powered by Google Gemini 2.5 Flash</p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
 </body>
-</html> 
+</html>
