@@ -13,7 +13,12 @@ A Chrome extension that uses Google Gemini 2.5 Flash AI to fact-check tweets, In
 
 ## Setup Instructions
 
-### 1. Install the Extension
+### 1. Add Your API Key
+
+1. Go to line 1 of background.js
+2. Replace the 'geminiAPIKey' variable with your Gemini API Key
+
+### 2. Install the Extension
 
 1. Open Chrome and go to `chrome://extensions/`
 2. Enable "Developer mode" in the top right
@@ -21,7 +26,7 @@ A Chrome extension that uses Google Gemini 2.5 Flash AI to fact-check tweets, In
 4. Select the extension folder
 5. The extension should now appear in your extensions list
 
-### 2. Configure the Extension
+### 3. Configure the Extension
 
 1. Click the extension icon in your browser toolbar
 2. Configure your preferences:
@@ -29,7 +34,7 @@ A Chrome extension that uses Google Gemini 2.5 Flash AI to fact-check tweets, In
    - Extract text from images
 3. Click "Save Settings"
 
-### 3. Use the Extension
+### 4. Use the Extension
 
 1. Visit Twitter, Instagram, or Facebook
 2. Look for posts with a "🔍 Fact Check" button
