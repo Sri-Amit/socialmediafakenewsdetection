@@ -288,9 +288,11 @@ class SocialMediaExtractor {
                 📚 Sources (${claim.sources.length})
               </div>
               ${claim.sources.map(source => `
-                <div class="source-item">
+                <div class="source-item" onclick="window.open('${source.url}', '_blank')" title="Click to open source">
                   <div class="source-header">
-                    <div class="source-title">${source.title}</div>
+                    <a href="${source.url}" target="_blank" rel="noopener" class="source-title-link" onclick="event.stopPropagation()">
+                      <div class="source-title">${source.title}</div>
+                    </a>
                     <div class="source-scores">
                       <div class="source-score">
                         <span>📊</span>
@@ -302,7 +304,10 @@ class SocialMediaExtractor {
                       </div>
                     </div>
                   </div>
-                  <a href="${source.url}" target="_blank" rel="noopener" class="source-url">${source.url}</a>
+                  <div class="source-url-container">
+                    <a href="${source.url}" target="_blank" rel="noopener" class="source-url" title="Click to open full URL" onclick="event.stopPropagation()">${source.url}</a>
+                    <span class="source-link-indicator">🔗</span>
+                  </div>
                   ${source.summary ? `<div class="source-summary">${source.summary}</div>` : ''}
                 </div>
               `).join('')}
@@ -544,13 +549,19 @@ class SocialMediaExtractor {
       <strong>Sources (${claimData.sources.length}):</strong>
       <ul style="margin: 4px 0; padding-left: 16px;">
         ${claimData.sources.map(source => `
-          <li>
-            <a href="${source.url}" target="_blank" style="color: #1da1f2; text-decoration: none;">
-              ${source.title}
+          <li style="margin-bottom: 8px;">
+            <a href="${source.url}" target="_blank" style="color: #1da1f2; text-decoration: none; font-weight: 600; display: block; margin-bottom: 2px;" title="Click to open: ${source.url}">
+              🔗 ${source.title}
             </a>
-            <span style="color: #666;">
-              (Credibility: ${source.credibilityScore}/10, Relevance: ${source.relevanceScore}/10)
-            </span>
+            <div style="color: #666; font-size: 11px; margin-left: 20px;">
+              <a href="${source.url}" target="_blank" style="color: #888; text-decoration: underline; word-break: break-all;" title="Full URL: ${source.url}">
+                ${source.url}
+              </a>
+              <br>
+              <span style="color: #999;">
+                (Credibility: ${source.credibilityScore}/10, Relevance: ${source.relevanceScore}/10)
+              </span>
+            </div>
           </li>
         `).join('')}
       </ul>

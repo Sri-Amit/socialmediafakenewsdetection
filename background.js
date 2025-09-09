@@ -1,3 +1,5 @@
+const geminiAPIKey = 'AIzaSyCsOPdyQQWuO-Eby6L7scmZ4SJSx_f5tfo';
+
 // Background script for handling API calls and storage
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Social Media Fact Checker extension installed');
@@ -64,48 +66,63 @@ async function performCombinedFactCheck(text, images) {
   const sanitizedText = text.replace(/["\\]/g, '\\$&').substring(0, 2000);
   
   const prompt = `
-    Analyze this social media post and provide a comprehensive fact-check in a single response.
+    Analyze this social media post and provide a comprehensive fact-check using real-time search results.
     
     Post Text: "${sanitizedText}"
     ${images && images.length > 0 ? `Images: ${images.length} image(s) with extracted text` : ''}
+    
+    IMPORTANT: Use the search grounding results to verify claims with current, authoritative sources. 
+    Cite specific sources from the search results in your analysis.
     
     Please provide a complete fact-check analysis in this JSON format:
     {
       "overallRating": 7,
       "overallConfidence": 0.8,
       "overallAssessment": "Likely True",
-      "overallExplanation": "Most claims are well-supported by evidence",
+      "overallExplanation": "Most claims are well-supported by evidence from authoritative sources",
       "claims": [
         {
           "claim": "The unemployment rate in the US is 3.5%",
           "rating": 8,
           "confidence": 0.9,
-          "explanation": "This statistic is accurate according to recent BLS data",
+          "explanation": "This statistic is accurate according to recent BLS data found in search results",
           "sources": [
             {
               "url": "https://bls.gov/news.release/empsit.nr0.htm",
               "title": "Bureau of Labor Statistics Employment Situation",
               "credibilityScore": 10,
               "relevanceScore": 10,
-              "summary": "Official government employment statistics"
+              "summary": "Official government employment statistics",
+              "searchResult": true
             }
           ],
-          "keyEvidence": ["Official BLS data", "Recent employment reports"]
+          "keyEvidence": ["Official BLS data", "Recent employment reports"],
+          "groundingUsed": true
         }
-      ]
+      ],
+      "searchMetadata": {
+        "sourcesFound": 3,
+        "authoritativeSources": 2,
+        "searchQueries": ["unemployment rate 2024", "BLS employment data"]
+      }
     }
     
     Focus on:
     1. Extract 2-4 most important factual claims
-    2. Find 1-2 credible sources per claim
-    3. Rate each claim's credibility (1-10)
-    4. Provide clear explanations
-    5. Keep it concise but thorough
+    2. Use search results to find credible, current sources
+    3. Rate each claim's credibility (1-10) based on source quality
+    4. Provide clear explanations with source citations
+    5. Note when grounding/search results were used
+    6. Keep it concise but thorough
   `;
   
   try {
     const response = await callGeminiAPI(prompt, apiKey);
-    const result = JSON.parse(cleanJsonResponse(response));
+    const result = JSON.parse(cleanJsonResponse(response.text));
+    
+    // Extract grounding metadata for additional context
+    const groundingMetadata = response.groundingMetadata;
+    console.log('Grounding metadata:', groundingMetadata);
     
     // Validate and clean result
     if (!result || typeof result !== 'object') {
@@ -120,6 +137,8 @@ async function performCombinedFactCheck(text, images) {
         assessment: result.overallAssessment || "Uncertain",
         explanation: (result.overallExplanation || 'Analysis completed').substring(0, 500)
       },
+      groundingMetadata: groundingMetadata,
+      searchMetadata: result.searchMetadata || null,
       claims: Array.isArray(result.claims) ? result.claims.map(claim => ({
         claim: (claim.claim || '').substring(0, 500),
         sources: Array.isArray(claim.sources) ? claim.sources.slice(0, 3).map(source => ({
@@ -127,13 +146,15 @@ async function performCombinedFactCheck(text, images) {
           title: (source.title || '').substring(0, 200),
           credibilityScore: Math.max(1, Math.min(10, Math.round(source.credibilityScore || 5))),
           relevanceScore: Math.max(1, Math.min(10, Math.round(source.relevanceScore || 5))),
-          summary: (source.summary || '').substring(0, 300)
+          summary: (source.summary || '').substring(0, 300),
+          searchResult: source.searchResult || false
         })) : [],
         credibilityRating: {
           rating: Math.max(1, Math.min(10, Math.round(claim.rating || 5))),
           confidence: Math.max(0, Math.min(1, claim.confidence || 0.1)),
           explanation: (claim.explanation || 'No explanation provided').substring(0, 500),
-          keyEvidence: Array.isArray(claim.keyEvidence) ? claim.keyEvidence.slice(0, 3) : []
+          keyEvidence: Array.isArray(claim.keyEvidence) ? claim.keyEvidence.slice(0, 3) : [],
+          groundingUsed: claim.groundingUsed || false
         }
       })) : []
     };
@@ -141,7 +162,6 @@ async function performCombinedFactCheck(text, images) {
     return factCheckResults;
   } catch (error) {
     console.error('Failed to parse combined fact-check JSON:', error);
-    console.log('Raw response:', response);
     // Return fallback response
     return {
       overallRating: {
@@ -150,6 +170,8 @@ async function performCombinedFactCheck(text, images) {
         assessment: "Unable to analyze",
         explanation: "Error occurred during analysis"
       },
+      groundingMetadata: null,
+      searchMetadata: null,
       claims: [{
         claim: "Unable to extract claims from this post",
         sources: [],
@@ -157,7 +179,8 @@ async function performCombinedFactCheck(text, images) {
           rating: 5,
           confidence: 0.1,
           explanation: "Analysis failed",
-          keyEvidence: []
+          keyEvidence: [],
+          groundingUsed: false
         }
       }]
     };
@@ -197,7 +220,7 @@ async function extractClaims(text, images) {
   
   try {
     const response = await callGeminiAPI(prompt, apiKey);
-    const claims = JSON.parse(cleanJsonResponse(response));
+    const claims = JSON.parse(cleanJsonResponse(response.text));
     
     // Validate response
     if (!Array.isArray(claims)) {
@@ -213,7 +236,6 @@ async function extractClaims(text, images) {
     );
   } catch (error) {
     console.error('Failed to parse claims JSON:', error);
-    console.log('Raw response:', response);
     // Return a fallback response
     return ["Unable to extract claims from this post"];
   }
@@ -264,7 +286,7 @@ async function findRelevantSources(claim) {
   
   try {
     const response = await callGeminiAPI(prompt, apiKey);
-    const sources = JSON.parse(cleanJsonResponse(response));
+    const sources = JSON.parse(cleanJsonResponse(response.text));
     
     // Validate response
     if (!Array.isArray(sources)) {
@@ -290,7 +312,6 @@ async function findRelevantSources(claim) {
     }));
   } catch (error) {
     console.error('Failed to parse sources JSON:', error);
-    console.log('Raw response:', response);
     // Return a fallback response
     return [{
       url: "https://example.com",
@@ -348,7 +369,7 @@ async function assessClaimCredibility(claim, sources) {
   
   try {
     const response = await callGeminiAPI(prompt, apiKey);
-    const result = JSON.parse(cleanJsonResponse(response));
+    const result = JSON.parse(cleanJsonResponse(response.text));
     
     // Validate and clean result
     if (!result || typeof result !== 'object') {
@@ -365,7 +386,6 @@ async function assessClaimCredibility(claim, sources) {
     };
   } catch (error) {
     console.error('Failed to parse credibility JSON:', error);
-    console.log('Raw response:', response);
     // Return a fallback response
     return {
       rating: 5,
@@ -428,7 +448,11 @@ async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
           topK: 1,
           topP: 0.8,
           maxOutputTokens: 2048,
-        }
+        },
+        // Enable search grounding for fact-checking
+        tools: [{
+          googleSearch: {}
+        }]
       })
     });
     
@@ -446,7 +470,31 @@ async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
     }
     
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+    
+    // Handle grounding metadata and extract text content
+    const candidate = data.candidates[0];
+    let textContent = '';
+    let groundingMetadata = null;
+    
+    // Extract text content from the response
+    if (candidate.content && candidate.content.parts) {
+      textContent = candidate.content.parts
+        .filter(part => part.text)
+        .map(part => part.text)
+        .join(' ');
+    }
+    
+    // Extract grounding metadata if available
+    if (candidate.groundingMetadata) {
+      groundingMetadata = candidate.groundingMetadata;
+    }
+    
+    // Return both text and grounding metadata
+    return {
+      text: textContent,
+      groundingMetadata: groundingMetadata,
+      fullResponse: data
+    };
   } catch (error) {
     if (error.message.includes('429') && retryCount < maxRetries) {
       // Network error with 429 - retry with exponential backoff
@@ -533,7 +581,7 @@ function cleanJsonResponse(response) {
 
 async function getApiKey() {
   // Use the provided API key directly
-  return 'AIzaSyCsOPdyQQWuO-Eby6L7scmZ4SJSx_f5tfo';
+  return geminiAPIKey;
 }
 
 async function updateStats() {
