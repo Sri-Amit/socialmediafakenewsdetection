@@ -11,61 +11,23 @@ A Chrome extension that uses Google Gemini 2.5 Flash AI to fact-check tweets, In
 - 🎯 **Grounding**: Finds relevant sources for each claim using AI grounding
 - 📱 **Modern UI**: Clean, responsive interface with real-time results
 
-## 🚀 Quick Setup
+## Setup Instructions
 
-### Prerequisites
-- Google Gemini API key (get one at [Google AI Studio](https://aistudio.google.com/))
-- Chrome browser
+### 1. Install the Extension
 
-### 1. Clone and Setup
-```bash
-git clone <your-repo-url>
-cd fakenewstwitterdetection
-npm run setup  # Creates .env file from template
-```
-
-### 2. Add Your API Keys
-Edit the `.env` file with your actual API keys:
-```env
-GEMINI_API_KEY=your_actual_gemini_api_key_here
-```
-
-### 3. Load the Extension
 1. Open Chrome and go to `chrome://extensions/`
 2. Enable "Developer mode" in the top right
 3. Click "Load unpacked"
 4. Select the extension folder
 5. The extension should now appear in your extensions list
 
-### 4. Test the Extension
-1. Visit Twitter/X, Instagram, or Facebook
-2. Look for the "🔍 Fact Check" button on posts
-3. Click the button to test the fact-checking functionality
+### 2. Configure the Extension
 
-## 🔑 Environment Variables
-
-The extension uses environment variables for secure API key management:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | ✅ Yes | Your Google Gemini API key |
-
-### Getting API Keys
-
-**Google Gemini API Key:**
-1. Go to [Google AI Studio](https://aistudio.google.com/)
-2. Sign in with your Google account
-3. Click "Get API Key"
-4. Create a new API key
-5. Copy the key to your `.env` file
-
-
-## 🔒 Security
-
-- ✅ API keys are stored in `.env` file (not committed to git)
-- ✅ `.env.example` shows required format without exposing real keys
-- ✅ `.gitignore` prevents accidental commits of sensitive data
-- ✅ Environment variables are loaded at runtime
+1. Click the extension icon in your browser toolbar
+2. Configure your preferences:
+   - Auto-check new posts
+   - Extract text from images
+3. Click "Save Settings"
 
 ### 3. Use the Extension
 

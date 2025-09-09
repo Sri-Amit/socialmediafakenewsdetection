@@ -1,3 +1,5 @@
+const geminiAPIKey = 'YOUR-API-KEY-HERE';
+
 // Background script for handling API calls and storage
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Social Media Fact Checker extension installed');
@@ -44,7 +46,7 @@ async function handleFactCheck(data, sendResponse) {
       }
     });
     
-    } catch (error) {
+  } catch (error) {
     console.error('Fact check error:', error);
     sendResponse({
       success: false,
@@ -64,60 +66,63 @@ async function performCombinedFactCheck(text, images) {
   const sanitizedText = text.replace(/["\\]/g, '\\$&').substring(0, 2000);
   
   const prompt = `
-    Use Google Search to analyze this social media post and provide a comprehensive fact-check with real, current sources.
+    Analyze this social media post and provide a comprehensive fact-check using real-time search results.
     
     Post Text: "${sanitizedText}"
     ${images && images.length > 0 ? `Images: ${images.length} image(s) with extracted text` : ''}
     
-    Search for current, authoritative sources to verify each claim. Use real-time information from:
-    - Government websites (.gov)
-    - Academic institutions (.edu)
-    - Reputable news organizations (Reuters, AP, BBC, etc.)
-    - Scientific journals and research papers
-    - Fact-checking organizations (Snopes, PolitiFact, etc.)
-    - International organizations (WHO, UN, etc.)
+    IMPORTANT: Use the search grounding results to verify claims with current, authoritative sources. 
+    Cite specific sources from the search results in your analysis.
     
     Please provide a complete fact-check analysis in this JSON format:
     {
       "overallRating": 7,
       "overallConfidence": 0.8,
       "overallAssessment": "Likely True",
-      "overallExplanation": "Most claims are well-supported by evidence",
+      "overallExplanation": "Most claims are well-supported by evidence from authoritative sources",
       "claims": [
         {
           "claim": "The unemployment rate in the US is 3.5%",
           "rating": 8,
           "confidence": 0.9,
-          "explanation": "This statistic is accurate according to recent BLS data",
+          "explanation": "This statistic is accurate according to recent BLS data found in search results",
           "sources": [
             {
               "url": "https://bls.gov/news.release/empsit.nr0.htm",
               "title": "Bureau of Labor Statistics Employment Situation",
               "credibilityScore": 10,
               "relevanceScore": 10,
-              "summary": "Official government employment statistics"
+              "summary": "Official government employment statistics",
+              "searchResult": true
             }
           ],
-          "keyEvidence": ["Official BLS data", "Recent employment reports"]
+          "keyEvidence": ["Official BLS data", "Recent employment reports"],
+          "groundingUsed": true
         }
-      ]
+      ],
+      "searchMetadata": {
+        "sourcesFound": 3,
+        "authoritativeSources": 2,
+        "searchQueries": ["unemployment rate 2024", "BLS employment data"]
+      }
     }
-    
-    IMPORTANT: Only use real, accessible sources that actually exist. Do not make up or hallucinate sources.
     
     Focus on:
     1. Extract 2-4 most important factual claims
-    2. Find 1-2 real, credible sources per claim using Google Search
-    3. Rate each claim's credibility (1-10)
-    4. Provide clear explanations based on actual sources
-    5. Keep it concise but thorough
-    
-    Return ONLY valid JSON in the exact format shown above. Do not include any text before or after the JSON.
+    2. Use search results to find credible, current sources
+    3. Rate each claim's credibility (1-10) based on source quality
+    4. Provide clear explanations with source citations
+    5. Note when grounding/search results were used
+    6. Keep it concise but thorough
   `;
   
   try {
-    const response = await callGeminiAPI(prompt, apiKey, 0, true); // Enable grounding for fact-checking
-    const result = JSON.parse(cleanJsonResponse(response));
+    const response = await callGeminiAPI(prompt, apiKey);
+    const result = JSON.parse(cleanJsonResponse(response.text));
+    
+    // Extract grounding metadata for additional context
+    const groundingMetadata = response.groundingMetadata;
+    console.log('Grounding metadata:', groundingMetadata);
     
     // Validate and clean result
     if (!result || typeof result !== 'object') {
@@ -132,6 +137,8 @@ async function performCombinedFactCheck(text, images) {
         assessment: result.overallAssessment || "Uncertain",
         explanation: (result.overallExplanation || 'Analysis completed').substring(0, 500)
       },
+      groundingMetadata: groundingMetadata,
+      searchMetadata: result.searchMetadata || null,
       claims: Array.isArray(result.claims) ? result.claims.map(claim => ({
         claim: (claim.claim || '').substring(0, 500),
         sources: Array.isArray(claim.sources) ? claim.sources.slice(0, 3).map(source => ({
@@ -139,13 +146,15 @@ async function performCombinedFactCheck(text, images) {
           title: (source.title || '').substring(0, 200),
           credibilityScore: Math.max(1, Math.min(10, Math.round(source.credibilityScore || 5))),
           relevanceScore: Math.max(1, Math.min(10, Math.round(source.relevanceScore || 5))),
-          summary: (source.summary || '').substring(0, 300)
+          summary: (source.summary || '').substring(0, 300),
+          searchResult: source.searchResult || false
         })) : [],
         credibilityRating: {
           rating: Math.max(1, Math.min(10, Math.round(claim.rating || 5))),
           confidence: Math.max(0, Math.min(1, claim.confidence || 0.1)),
           explanation: (claim.explanation || 'No explanation provided').substring(0, 500),
-          keyEvidence: Array.isArray(claim.keyEvidence) ? claim.keyEvidence.slice(0, 3) : []
+          keyEvidence: Array.isArray(claim.keyEvidence) ? claim.keyEvidence.slice(0, 3) : [],
+          groundingUsed: claim.groundingUsed || false
         }
       })) : []
     };
@@ -153,15 +162,16 @@ async function performCombinedFactCheck(text, images) {
     return factCheckResults;
   } catch (error) {
     console.error('Failed to parse combined fact-check JSON:', error);
-    console.log('Raw response:', response);
     // Return fallback response
-                return {
+    return {
       overallRating: {
         rating: 5,
         confidence: 0.1,
         assessment: "Unable to analyze",
         explanation: "Error occurred during analysis"
       },
+      groundingMetadata: null,
+      searchMetadata: null,
       claims: [{
         claim: "Unable to extract claims from this post",
         sources: [],
@@ -169,7 +179,8 @@ async function performCombinedFactCheck(text, images) {
           rating: 5,
           confidence: 0.1,
           explanation: "Analysis failed",
-          keyEvidence: []
+          keyEvidence: [],
+          groundingUsed: false
         }
       }]
     };
@@ -209,7 +220,7 @@ async function extractClaims(text, images) {
   
   try {
     const response = await callGeminiAPI(prompt, apiKey);
-    const claims = JSON.parse(cleanJsonResponse(response));
+    const claims = JSON.parse(cleanJsonResponse(response.text));
     
     // Validate response
     if (!Array.isArray(claims)) {
@@ -225,7 +236,6 @@ async function extractClaims(text, images) {
     );
   } catch (error) {
     console.error('Failed to parse claims JSON:', error);
-    console.log('Raw response:', response);
     // Return a fallback response
     return ["Unable to extract claims from this post"];
   }
@@ -246,42 +256,37 @@ async function findRelevantSources(claim) {
   const sanitizedClaim = claim.replace(/["\\]/g, '\\$&').substring(0, 1000);
   
   const prompt = `
-    Use Google Search to find current, authoritative sources that can verify or refute this claim: "${sanitizedClaim}"
+    Find relevant, credible sources to verify this claim: "${sanitizedClaim}"
     
-    Search for recent, credible sources including:
+    Use grounding to search for authoritative sources including:
     - Government websites (.gov)
-    - Academic institutions (.edu) 
-    - Reputable news organizations (Reuters, AP, BBC, etc.)
-    - Scientific journals and research papers
-    - International organizations (WHO, UN, etc.)
-    - Fact-checking organizations (Snopes, PolitiFact, etc.)
+    - Academic institutions (.edu)
+    - Reputable news organizations
+    - Scientific journals
+    - International organizations
     
-    For each source found, provide:
-    - URL (must be real and accessible)
-    - Title (actual article/source title)
-    - Credibility score (1-10 based on source reputation)
-    - Relevance score (1-10 based on how directly it addresses the claim)
-    - Summary (brief description of what the source says about the claim)
+    For each source, provide:
+    - URL
+    - Title
+    - Credibility score (1-10)
+    - Relevance score (1-10)
+    - Brief summary of how it relates to the claim
     
-    IMPORTANT: Only include sources that actually exist and are accessible. Do not make up or hallucinate sources.
-    
-    Return ONLY a valid JSON array with this exact structure:
+    Return as JSON array with this structure:
     [
       {
-        "url": "https://real-source.com/article",
-        "title": "Actual Article Title",
+        "url": "https://example.com",
+        "title": "Source Title",
         "credibilityScore": 9,
         "relevanceScore": 8,
-        "summary": "What this source says about the claim"
+        "summary": "Brief description of relevance"
       }
     ]
-    
-    Do not include any text before or after the JSON array. Return only the JSON.
   `;
   
   try {
-    const response = await callGeminiAPI(prompt, apiKey, 0, true); // Enable grounding
-    const sources = JSON.parse(cleanJsonResponse(response));
+    const response = await callGeminiAPI(prompt, apiKey);
+    const sources = JSON.parse(cleanJsonResponse(response.text));
     
     // Validate response
     if (!Array.isArray(sources)) {
@@ -305,9 +310,8 @@ async function findRelevantSources(claim) {
       relevanceScore: Math.round(source.relevanceScore),
       summary: (source.summary || '').substring(0, 300) // Limit summary length
     }));
-    } catch (error) {
+  } catch (error) {
     console.error('Failed to parse sources JSON:', error);
-    console.log('Raw response:', response);
     // Return a fallback response
     return [{
       url: "https://example.com",
@@ -365,7 +369,7 @@ async function assessClaimCredibility(claim, sources) {
   
   try {
     const response = await callGeminiAPI(prompt, apiKey);
-    const result = JSON.parse(cleanJsonResponse(response));
+    const result = JSON.parse(cleanJsonResponse(response.text));
     
     // Validate and clean result
     if (!result || typeof result !== 'object') {
@@ -380,9 +384,8 @@ async function assessClaimCredibility(claim, sources) {
         result.keyEvidence.filter(item => typeof item === 'string').slice(0, 5) : 
         []
     };
-    } catch (error) {
+  } catch (error) {
     console.error('Failed to parse credibility JSON:', error);
-    console.log('Raw response:', response);
     // Return a fallback response
     return {
       rating: 5,
@@ -424,40 +427,33 @@ function calculateOverallCredibility(factCheckResults) {
   };
 }
 
-async function callGeminiAPI(prompt, apiKey, retryCount = 0, useGrounding = false) {
+async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
   const maxRetries = 3;
   const baseDelay = 2000; // 2 seconds base delay
   
   try {
-    const requestBody = {
-      contents: [{
-        parts: [{
-          text: prompt
-                    }]
-                }],
-                generationConfig: {
-        temperature: 0.1,
-        topK: 1,
-        topP: 0.8,
-        maxOutputTokens: 2048,
-      }
-    };
-
-    // Add grounding tools if requested
-    if (useGrounding) {
-      requestBody.tools = [{
-        google_search: {}
-      }];
-      // Remove responseMimeType when using grounding (not supported)
-      delete requestBody.generationConfig.responseMimeType;
-    }
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 1,
+          topP: 0.8,
+          maxOutputTokens: 2048,
+        },
+        // Enable search grounding for fact-checking
+        tools: [{
+          googleSearch: {}
+        }]
+      })
     });
     
     if (!response.ok) {
@@ -466,16 +462,40 @@ async function callGeminiAPI(prompt, apiKey, retryCount = 0, useGrounding = fals
         const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000;
         console.log(`Rate limit hit, retrying in ${Math.round(delay)}ms (attempt ${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return callGeminiAPI(prompt, apiKey, retryCount + 1, useGrounding);
+        return callGeminiAPI(prompt, apiKey, retryCount + 1);
       }
       
-            const errorText = await response.text();
+      const errorText = await response.text();
       throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-
-        const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
-    } catch (error) {
+    }
+    
+    const data = await response.json();
+    
+    // Handle grounding metadata and extract text content
+    const candidate = data.candidates[0];
+    let textContent = '';
+    let groundingMetadata = null;
+    
+    // Extract text content from the response
+    if (candidate.content && candidate.content.parts) {
+      textContent = candidate.content.parts
+        .filter(part => part.text)
+        .map(part => part.text)
+        .join(' ');
+    }
+    
+    // Extract grounding metadata if available
+    if (candidate.groundingMetadata) {
+      groundingMetadata = candidate.groundingMetadata;
+    }
+    
+    // Return both text and grounding metadata
+    return {
+      text: textContent,
+      groundingMetadata: groundingMetadata,
+      fullResponse: data
+    };
+  } catch (error) {
     if (error.message.includes('429') && retryCount < maxRetries) {
       // Network error with 429 - retry with exponential backoff
       const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000;
@@ -560,13 +580,8 @@ function cleanJsonResponse(response) {
 }
 
 async function getApiKey() {
-  // Get API key from config (which reads from environment variables)
-  if (typeof window !== 'undefined' && window.fakeNewsConfig) {
-    return window.fakeNewsConfig.gemini.apiKey;
-  }
-  
-  // Fallback for development
-  return 'AIzaSyDaU5J4YTH70BihYb8QbGHjiK6negpX2os';
+  // Use the provided API key directly
+  return geminiAPIKey;
 }
 
 async function updateStats() {
