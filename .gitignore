@@ -1,32 +1,27 @@
-# API Keys and Sensitive Configuration
-config.local.js
-*.key
-*.pem
+# Environment variables
 .env
 .env.local
 .env.production
-.env.staging
+.env.development
 
-# API Keys in files (common patterns)
-*api*key*
-*secret*
-*password*
-*token*
+# API Keys and sensitive data
+config.local.js
+secrets.js
+api-keys.js
 
-# Chrome Extension specific
-*.crx
-*.pem
-web-accessible-resources/
-
-# Node.js (if using build tools)
+# Node modules (if using npm/yarn)
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
 
-# IDE and Editor files
+# Build outputs
+dist/
+build/
+*.min.js
+*.min.css
+
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
@@ -59,6 +54,11 @@ coverage/
 tmp/
 temp/
 
-# Build outputs
-dist/
-build/
+# Chrome extension specific
+*.crx
+*.pem
+*.zip
+
+# Test files (optional - remove if you want to keep test files)
+test-*.html
+debug-*.html

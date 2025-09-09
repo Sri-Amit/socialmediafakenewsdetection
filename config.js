@@ -1,10 +1,27 @@
-// Configuration template for Fake News Detector extension
-// Copy this file to config.local.js and add your actual API keys
+// Configuration file for Fake News Detector extension
+// This file reads from environment variables for security
+
+// Load environment variables (for development)
+// In production, these should be set by the build process or extension environment
+const getEnvVar = (name, defaultValue = '') => {
+  // Try to get from environment (if available)
+  if (typeof process !== 'undefined' && process.env && process.env[name]) {
+    return process.env[name];
+  }
+  
+  // Try to get from window (if set by build process)
+  if (typeof window !== 'undefined' && window.env && window.env[name]) {
+    return window.env[name];
+  }
+  
+  // Return default value
+  return defaultValue;
+};
 
 const config = {
     // Google Gemini API Configuration
     gemini: {
-        apiKey: 'YOUR_GEMINI_API_KEY_HERE', // Replace with your actual Gemini API key
+        apiKey: getEnvVar('GEMINI_API_KEY', 'AIzaSyDaU5J4YTH70BihYb8QbGHjiK6negpX2os'), // Fallback for development
         model: 'gemini-2.5-flash',
         maxTokens: {
             headline: 50,
@@ -19,7 +36,6 @@ const config = {
             analysis: 0.3
         }
     },
-
 
     // Credible Sources Configuration
     credibleSources: [

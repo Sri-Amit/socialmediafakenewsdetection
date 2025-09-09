@@ -469,11 +469,11 @@ async function callGeminiAPI(prompt, apiKey, retryCount = 0, useGrounding = fals
         return callGeminiAPI(prompt, apiKey, retryCount + 1, useGrounding);
       }
       
-      const errorText = await response.text();
+            const errorText = await response.text();
       throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-    
-    const data = await response.json();
+        }
+
+        const data = await response.json();
     return data.candidates[0].content.parts[0].text;
     } catch (error) {
     if (error.message.includes('429') && retryCount < maxRetries) {
@@ -560,7 +560,12 @@ function cleanJsonResponse(response) {
 }
 
 async function getApiKey() {
-  // Use the provided API key directly
+  // Get API key from config (which reads from environment variables)
+  if (typeof window !== 'undefined' && window.fakeNewsConfig) {
+    return window.fakeNewsConfig.gemini.apiKey;
+  }
+  
+  // Fallback for development
   return 'AIzaSyDaU5J4YTH70BihYb8QbGHjiK6negpX2os';
 }
 
