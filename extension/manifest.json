@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Social Media Fact Checker",
+  "version": "1.0.0",
+  "description": "Fact-check tweets, Instagram posts, and Facebook posts using AI with free tier and Pro upgrade",
+  "permissions": [
+    "storage",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://YOUR-API-HOST/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Fact Checker"
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}

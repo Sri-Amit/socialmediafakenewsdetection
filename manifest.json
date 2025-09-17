@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Social Media Fact Checker",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Fact-check tweets, Instagram posts, and Facebook posts using Google Gemini AI with grounding",
   "permissions": [
     "storage"
