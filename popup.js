@@ -32,7 +32,10 @@ class PopupManager {
     // Upgrade button
     const upgradeBtn = document.getElementById('upgradeBtn');
     if (upgradeBtn) {
-      upgradeBtn.addEventListener('click', () => {
+      upgradeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Upgrade button clicked');
         this.launchUpgradeFlow();
       });
     }
@@ -190,11 +193,15 @@ class PopupManager {
   }
 
   launchUpgradeFlow() {
+    console.log('Launching upgrade flow...');
+    this.showStatus('Opening upgrade page...', 'success');
+    
     chrome.runtime.sendMessage({ action: 'authenticateUser' }, (response) => {
       if (chrome.runtime.lastError) {
         console.error('Error launching upgrade flow:', chrome.runtime.lastError);
-        this.showStatus('Error launching upgrade flow', 'error');
+        this.showStatus('Error launching upgrade flow: ' + chrome.runtime.lastError.message, 'error');
       } else if (response && response.success) {
+        console.log('Upgrade flow completed successfully');
         this.showStatus('Upgrade completed successfully!', 'success');
         // Reload the popup to show updated status
         setTimeout(() => {
@@ -202,7 +209,7 @@ class PopupManager {
         }, 2000);
       } else {
         console.error('Upgrade flow failed:', response?.error);
-        this.showStatus('Upgrade failed. Please try again.', 'error');
+        this.showStatus('Upgrade failed: ' + (response?.error || 'Unknown error'), 'error');
       }
     });
   }

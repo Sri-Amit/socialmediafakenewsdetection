@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
-import jwt from 'jsonwebtoken';
+// JWT will be handled server-side
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -29,19 +29,28 @@ export default function Auth() {
       setLoading(false);
       
       if (user) {
-        // Generate JWT token and redirect to extension
-        const token = jwt.sign(
-          {
-            uid: user.uid,
-            email: user.email,
-            exp: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour expiry
-          },
-          process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback-secret'
-        );
-        
-        const { redirect } = router.query;
-        if (redirect) {
-          window.location.href = `${redirect}#${token}`;
+        // Generate JWT token via API
+        try {
+          const response = await fetch('/api/generate-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: user.uid,
+              email: user.email
+            })
+          });
+          
+          if (response.ok) {
+            const { token } = await response.json();
+            const { redirect } = router.query;
+            if (redirect) {
+              window.location.href = `${redirect}#${token}`;
+            }
+          } else {
+            console.error('Failed to generate token');
+          }
+        } catch (error) {
+          console.error('Error generating token:', error);
         }
       }
     });
@@ -51,10 +60,13 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
+      console.log('Starting Google sign in...');
       setProcessing(true);
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      console.log('Sign in successful:', result.user);
     } catch (error) {
       console.error('Sign in error:', error);
+      alert('Sign in failed: ' + error.message);
     } finally {
       setProcessing(false);
     }

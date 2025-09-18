@@ -723,7 +723,7 @@ async function authenticateUser(sendResponse) {
     const redirectUrl = chrome.identity.getRedirectURL();
     
     // Your Vercel website URL - replace with your actual domain
-    const websiteUrl = 'https://fact-checker-website.vercel.app';
+    const websiteUrl = 'https://socialmediafakenewsdetection.vercel.app/';
     const authUrl = `${websiteUrl}/auth?redirect=${encodeURIComponent(redirectUrl)}`;
     
     // Launch the authentication flow
@@ -744,11 +744,14 @@ async function authenticateUser(sendResponse) {
         const url = new URL(responseUrl);
         const token = url.hash.substring(1); // Remove the # from the fragment
         
+        console.log('Received token from redirect:', token ? token.substring(0, 50) + '...' : 'undefined');
+        
         if (token) {
           // Store the token
           await chrome.storage.local.set({ userToken: token });
           
           // Verify the token with your backend
+          console.log('Verifying token with backend...');
           const verificationResult = await verifyToken(token);
           
           if (verificationResult.success) {
@@ -796,8 +799,10 @@ async function authenticateUser(sendResponse) {
 // Verify token with backend
 async function verifyToken(token) {
   try {
-    // Replace with your actual API endpoint
-    const response = await fetch('https://fact-checker-website.vercel.app/api/verify-token', {
+    console.log('Making request to verify-token API...');
+    console.log('Token being sent:', token ? token.substring(0, 50) + '...' : 'undefined');
+    
+    const response = await fetch('https://socialmediafakenewsdetection.vercel.app/api/verify-token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -805,11 +810,17 @@ async function verifyToken(token) {
       body: JSON.stringify({ token })
     });
     
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
     }
     
     const result = await response.json();
+    console.log('API Response:', result);
     return result;
   } catch (error) {
     console.error('Error verifying token:', error);
