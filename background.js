@@ -1,4 +1,4 @@
-const geminiAPIKey = 'AIzaSyD7_QJNTXAo1oTOZKzumCs9E6C8scVR4YM';
+const geminiAPIKey = 'YOUR-API-KEY-HERE';
 
 // Background script for handling API calls and storage
 chrome.runtime.onInstalled.addListener(() => {
