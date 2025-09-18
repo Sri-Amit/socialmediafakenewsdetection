@@ -7,6 +7,8 @@ class PopupManager {
   async init() {
     await this.loadSettings();
     await this.loadStats();
+    await this.loadSubscriptionStatus();
+    await this.loadUsageInfo();
     this.setupEventListeners();
   }
 
@@ -26,6 +28,14 @@ class PopupManager {
         showImagesCheckbox.disabled = false;
       }
     });
+
+    // Upgrade button
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    if (upgradeBtn) {
+      upgradeBtn.addEventListener('click', () => {
+        this.launchUpgradeFlow();
+      });
+    }
   }
 
   async loadSettings() {
@@ -122,6 +132,79 @@ class PopupManager {
     setTimeout(() => {
       statusElement.classList.add('hidden');
     }, 3000);
+  }
+
+  async loadSubscriptionStatus() {
+    try {
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getSubscriptionStatus' }, resolve);
+      });
+
+      const statusElement = document.getElementById('subscriptionStatus');
+      const upgradeSection = document.getElementById('upgradeSection');
+      
+      if (response && response.isPro) {
+        statusElement.innerHTML = `
+          <div class="status-text">
+            ✅ Pro Plan Active
+          </div>
+        `;
+        upgradeSection.style.display = 'none';
+      } else {
+        statusElement.innerHTML = `
+          <div class="status-text">
+            📊 Free Plan - 5 checks per day
+          </div>
+        `;
+        upgradeSection.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Error loading subscription status:', error);
+    }
+  }
+
+  async loadUsageInfo() {
+    try {
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'checkUsageLimit' }, resolve);
+      });
+
+      const usageInfo = document.getElementById('usageInfo');
+      const remainingChecks = document.getElementById('remainingChecks');
+      const planBadge = document.getElementById('planBadge');
+      
+      if (response && response.plan) {
+        usageInfo.style.display = 'block';
+        remainingChecks.textContent = response.remainingChecks || 0;
+        planBadge.textContent = response.plan === 'pro' ? 'Pro Plan' : 'Free Plan';
+        
+        if (response.plan === 'pro') {
+          planBadge.style.background = '#10b981';
+        } else {
+          planBadge.style.background = '#667eea';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading usage info:', error);
+    }
+  }
+
+  launchUpgradeFlow() {
+    chrome.runtime.sendMessage({ action: 'authenticateUser' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error launching upgrade flow:', chrome.runtime.lastError);
+        this.showStatus('Error launching upgrade flow', 'error');
+      } else if (response && response.success) {
+        this.showStatus('Upgrade completed successfully!', 'success');
+        // Reload the popup to show updated status
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        console.error('Upgrade flow failed:', response?.error);
+        this.showStatus('Upgrade failed. Please try again.', 'error');
+      }
+    });
   }
 }
 

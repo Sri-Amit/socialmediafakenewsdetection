@@ -14,6 +14,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Respond to ping to verify extension context is valid
     sendResponse({ status: 'ok' });
     return false;
+  } else if (request.action === 'checkUsageLimit') {
+    checkUsageLimit(sendResponse);
+    return true;
+  } else if (request.action === 'getSubscriptionStatus') {
+    getSubscriptionStatus(sendResponse);
+    return true;
+  } else if (request.action === 'authenticateUser') {
+    authenticateUser(sendResponse);
+    return true;
   }
 });
 
@@ -29,6 +38,18 @@ async function handleFactCheck(data, sendResponse) {
     // Validate required fields
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       throw new Error('No text content found to analyze');
+    }
+    
+    // Check usage limits before proceeding
+    const usageCheck = await checkUsageLimit();
+    if (!usageCheck.canProceed) {
+      sendResponse({
+        success: false,
+        error: 'Daily limit reached',
+        limitReached: true,
+        usageInfo: usageCheck
+      });
+      return;
     }
     
     // Update usage statistics
@@ -604,5 +625,194 @@ async function updateStats() {
     await chrome.storage.local.set({ stats });
   } catch (error) {
     console.error('Error updating stats:', error);
+  }
+}
+
+// Usage limit checking
+async function checkUsageLimit(sendResponse) {
+  try {
+    const result = await chrome.storage.local.get(['stats', 'subscription']);
+    const stats = result.stats || { totalChecks: 0, todayChecks: 0, lastCheckDate: null };
+    const subscription = result.subscription || { plan: 'free', status: 'active' };
+    
+    const today = new Date().toDateString();
+    
+    // Reset today's count if it's a new day
+    if (stats.lastCheckDate !== today) {
+      stats.todayChecks = 0;
+      stats.lastCheckDate = today;
+      await chrome.storage.local.set({ stats });
+    }
+    
+    const dailyLimit = subscription.plan === 'pro' ? Infinity : 5;
+    const canProceed = stats.todayChecks < dailyLimit;
+    
+    const usageInfo = {
+      todayChecks: stats.todayChecks,
+      dailyLimit: dailyLimit,
+      plan: subscription.plan,
+      canProceed: canProceed,
+      remainingChecks: Math.max(0, dailyLimit - stats.todayChecks)
+    };
+    
+    if (sendResponse) {
+      sendResponse(usageInfo);
+    }
+    
+    return usageInfo;
+  } catch (error) {
+    console.error('Error checking usage limit:', error);
+    const errorResponse = {
+      todayChecks: 0,
+      dailyLimit: 5,
+      plan: 'free',
+      canProceed: false,
+      remainingChecks: 0,
+      error: error.message
+    };
+    
+    if (sendResponse) {
+      sendResponse(errorResponse);
+    }
+    
+    return errorResponse;
+  }
+}
+
+// Get subscription status
+async function getSubscriptionStatus(sendResponse) {
+  try {
+    const result = await chrome.storage.local.get(['subscription', 'userToken']);
+    const subscription = result.subscription || { plan: 'free', status: 'active' };
+    const userToken = result.userToken;
+    
+    const status = {
+      plan: subscription.plan,
+      status: subscription.status,
+      isAuthenticated: !!userToken,
+      isPro: subscription.plan === 'pro' && subscription.status === 'active'
+    };
+    
+    if (sendResponse) {
+      sendResponse(status);
+    }
+    
+    return status;
+  } catch (error) {
+    console.error('Error getting subscription status:', error);
+    const errorResponse = {
+      plan: 'free',
+      status: 'active',
+      isAuthenticated: false,
+      isPro: false,
+      error: error.message
+    };
+    
+    if (sendResponse) {
+      sendResponse(errorResponse);
+    }
+    
+    return errorResponse;
+  }
+}
+
+// Authenticate user using Chrome identity
+async function authenticateUser(sendResponse) {
+  try {
+    // Get the redirect URL for this extension
+    const redirectUrl = chrome.identity.getRedirectURL();
+    
+    // Your Vercel website URL - replace with your actual domain
+    const websiteUrl = 'https://fact-checker-website.vercel.app';
+    const authUrl = `${websiteUrl}/auth?redirect=${encodeURIComponent(redirectUrl)}`;
+    
+    // Launch the authentication flow
+    chrome.identity.launchWebAuthFlow({
+      url: authUrl,
+      interactive: true
+    }, async (responseUrl) => {
+      if (chrome.runtime.lastError) {
+        console.error('Auth error:', chrome.runtime.lastError);
+        if (sendResponse) {
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        }
+        return;
+      }
+      
+      try {
+        // Extract token from URL fragment
+        const url = new URL(responseUrl);
+        const token = url.hash.substring(1); // Remove the # from the fragment
+        
+        if (token) {
+          // Store the token
+          await chrome.storage.local.set({ userToken: token });
+          
+          // Verify the token with your backend
+          const verificationResult = await verifyToken(token);
+          
+          if (verificationResult.success) {
+            // Store subscription info
+            await chrome.storage.local.set({ 
+              subscription: {
+                plan: verificationResult.plan || 'free',
+                status: verificationResult.status || 'active'
+              }
+            });
+            
+            if (sendResponse) {
+              sendResponse({ 
+                success: true, 
+                plan: verificationResult.plan,
+                status: verificationResult.status
+              });
+            }
+          } else {
+            if (sendResponse) {
+              sendResponse({ success: false, error: 'Token verification failed' });
+            }
+          }
+        } else {
+          if (sendResponse) {
+            sendResponse({ success: false, error: 'No token received' });
+          }
+        }
+      } catch (error) {
+        console.error('Error processing auth response:', error);
+        if (sendResponse) {
+          sendResponse({ success: false, error: error.message });
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error launching auth flow:', error);
+    if (sendResponse) {
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+}
+
+// Verify token with backend
+async function verifyToken(token) {
+  try {
+    // Replace with your actual API endpoint
+    const response = await fetch('https://fact-checker-website.vercel.app/api/verify-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return { success: false, error: error.message };
   }
 }

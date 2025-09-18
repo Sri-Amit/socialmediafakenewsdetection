@@ -234,6 +234,81 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    .usage-card {
+      background: #f7fafc;
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .usage-text {
+      font-size: 14px;
+      color: #4a5568;
+    }
+
+    .plan-badge {
+      background: #667eea;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .subscription-card {
+      background: #f7fafc;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .subscription-status {
+      text-align: center;
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+    }
+
+    .upgrade-card {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .upgrade-card h4 {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .pro-features {
+      list-style: none;
+      margin: 12px 0;
+      text-align: left;
+    }
+
+    .pro-features li {
+      padding: 4px 0;
+      font-size: 14px;
+    }
+
+    .upgrade-card .btn {
+      background: white;
+      color: #667eea;
+      margin-top: 12px;
+    }
+
+    .upgrade-card .btn:hover {
+      background: #f7fafc;
+    }
   </style>
 </head>
 <body>
@@ -271,6 +346,43 @@
         <div class="stat-card">
           <div class="stat-number" id="todayChecks">0</div>
           <div class="stat-label">Today</div>
+        </div>
+      </div>
+      
+      <div class="usage-info" id="usageInfo" style="display: none;">
+        <div class="usage-card">
+          <div class="usage-text">
+            <span id="remainingChecks">0</span> checks remaining today
+          </div>
+          <div class="plan-badge" id="planBadge">Free Plan</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="subscriptionSection">
+      <h3>
+        <span class="icon">💎</span>
+        Subscription
+      </h3>
+      
+      <div class="subscription-info" id="subscriptionInfo">
+        <div class="subscription-card">
+          <div class="subscription-status" id="subscriptionStatus">
+            <div class="status-text">Loading...</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="upgrade-section" id="upgradeSection" style="display: none;">
+        <div class="upgrade-card">
+          <h4>🚀 Upgrade to Pro</h4>
+          <ul class="pro-features">
+            <li>✅ Unlimited fact checks</li>
+            <li>✅ Priority processing</li>
+            <li>✅ Advanced analytics</li>
+            <li>✅ Premium support</li>
+          </ul>
+          <button class="btn btn-primary" id="upgradeBtn">Upgrade to Pro - $9.99/month</button>
         </div>
       </div>
     </div>
