@@ -20,8 +20,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === 'getSubscriptionStatus') {
     getSubscriptionStatus(sendResponse);
     return true;
-  } else if (request.action === 'authenticateUser') {
-    authenticateUser(sendResponse);
+  } else if (request.action === 'openBilling') {
+    openBillingPage(sendResponse);
     return true;
   }
 });
@@ -716,80 +716,19 @@ async function getSubscriptionStatus(sendResponse) {
   }
 }
 
-// Authenticate user using Chrome identity
-async function authenticateUser(sendResponse) {
+// Open billing page for user to upgrade
+async function openBillingPage(sendResponse) {
   try {
-    // Get the redirect URL for this extension
-    const redirectUrl = chrome.identity.getRedirectURL();
-    
-    // Your Vercel website URL - replace with your actual domain
-    const websiteUrl = 'https://socialmediafakenewsdetection.vercel.app/';
-    const authUrl = `${websiteUrl}/auth?redirect=${encodeURIComponent(redirectUrl)}`;
-    
-    // Launch the authentication flow
-    chrome.identity.launchWebAuthFlow({
-      url: authUrl,
-      interactive: true
-    }, async (responseUrl) => {
-      if (chrome.runtime.lastError) {
-        console.error('Auth error:', chrome.runtime.lastError);
-        if (sendResponse) {
-          sendResponse({ success: false, error: chrome.runtime.lastError.message });
-        }
-        return;
-      }
-      
-      try {
-        // Extract token from URL fragment
-        const url = new URL(responseUrl);
-        const token = url.hash.substring(1); // Remove the # from the fragment
-        
-        console.log('Received token from redirect:', token ? token.substring(0, 50) + '...' : 'undefined');
-        
-        if (token) {
-          // Store the token
-          await chrome.storage.local.set({ userToken: token });
-          
-          // Verify the token with your backend
-          console.log('Verifying token with backend...');
-          const verificationResult = await verifyToken(token);
-          
-          if (verificationResult.success) {
-            // Store subscription info
-            await chrome.storage.local.set({ 
-              subscription: {
-                plan: verificationResult.plan || 'free',
-                status: verificationResult.status || 'active'
-              }
-            });
-            
-            if (sendResponse) {
-              sendResponse({ 
-                success: true, 
-                plan: verificationResult.plan,
-                status: verificationResult.status
-              });
-            }
-          } else {
-            if (sendResponse) {
-              sendResponse({ success: false, error: 'Token verification failed' });
-            }
-          }
-        } else {
-          if (sendResponse) {
-            sendResponse({ success: false, error: 'No token received' });
-          }
-        }
-      } catch (error) {
-        console.error('Error processing auth response:', error);
-        if (sendResponse) {
-          sendResponse({ success: false, error: error.message });
-        }
-      }
+    // Open billing page in new tab
+    chrome.tabs.create({ 
+      url: 'https://socialmediafakenewsdetection.vercel.app/billing' 
     });
     
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
   } catch (error) {
-    console.error('Error launching auth flow:', error);
+    console.error('Error opening billing page:', error);
     if (sendResponse) {
       sendResponse({ success: false, error: error.message });
     }

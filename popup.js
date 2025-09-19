@@ -193,25 +193,66 @@ class PopupManager {
   }
 
   launchUpgradeFlow() {
-    console.log('Launching upgrade flow...');
-    this.showStatus('Opening upgrade page...', 'success');
+    console.log('Opening billing page...');
+    this.showStatus('Opening billing page...', 'success');
     
-    chrome.runtime.sendMessage({ action: 'authenticateUser' }, (response) => {
+    chrome.runtime.sendMessage({ action: 'openBilling' }, (response) => {
       if (chrome.runtime.lastError) {
-        console.error('Error launching upgrade flow:', chrome.runtime.lastError);
-        this.showStatus('Error launching upgrade flow: ' + chrome.runtime.lastError.message, 'error');
+        console.error('Error opening billing page:', chrome.runtime.lastError);
+        this.showStatus('Error opening billing page: ' + chrome.runtime.lastError.message, 'error');
       } else if (response && response.success) {
-        console.log('Upgrade flow completed successfully');
-        this.showStatus('Upgrade completed successfully!', 'success');
-        // Reload the popup to show updated status
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        console.log('Billing page opened successfully');
+        this.showStatus('Billing page opened! Complete payment and sync your account.', 'success');
+        
+        // Start polling for plan changes
+        this.startPollingForUpgrade();
       } else {
-        console.error('Upgrade flow failed:', response?.error);
-        this.showStatus('Upgrade failed: ' + (response?.error || 'Unknown error'), 'error');
+        console.error('Failed to open billing page:', response?.error);
+        this.showStatus('Failed to open billing page: ' + (response?.error || 'Unknown error'), 'error');
       }
     });
+  }
+
+  startPollingForUpgrade() {
+    const start = Date.now();
+    const pollInterval = 5000; // 5 seconds
+    const maxDuration = 120000; // 2 minutes
+    
+    const poll = async () => {
+      try {
+        // Check subscription status
+        const response = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ action: 'getSubscriptionStatus' }, resolve);
+        });
+        
+        if (response && response.isPro) {
+          console.log('Pro plan detected!');
+          this.showStatus('Pro plan activated!', 'success');
+          // Reload the popup to show updated status
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+          return;
+        }
+        
+        // Continue polling if we haven't exceeded the time limit
+        if (Date.now() - start < maxDuration) {
+          setTimeout(poll, pollInterval);
+        } else {
+          console.log('Polling timeout reached');
+          this.showStatus('Upgrade timeout. Please refresh if you completed payment.', 'warning');
+        }
+      } catch (error) {
+        console.error('Error polling for upgrade:', error);
+        // Continue polling on error
+        if (Date.now() - start < maxDuration) {
+          setTimeout(poll, pollInterval);
+        }
+      }
+    };
+    
+    // Start polling after a short delay
+    setTimeout(poll, pollInterval);
   }
 }
 
