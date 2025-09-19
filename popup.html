@@ -235,79 +235,55 @@
       100% { transform: rotate(360deg); }
     }
 
-    .usage-card {
-      background: #f7fafc;
-      padding: 12px;
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 8px;
-    }
-
-    .usage-text {
-      font-size: 14px;
-      color: #4a5568;
-    }
-
-    .plan-badge {
-      background: #667eea;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .subscription-card {
-      background: #f7fafc;
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-    }
-
-    .subscription-status {
-      text-align: center;
-    }
-
-    .status-text {
-      font-size: 14px;
-      color: #4a5568;
-      font-weight: 500;
-    }
-
     .upgrade-card {
       background: linear-gradient(135deg, #667eea, #764ba2);
       color: white;
       padding: 16px;
-      border-radius: 8px;
+      border-radius: 12px;
       text-align: center;
+      margin-bottom: 16px;
     }
 
     .upgrade-card h4 {
       font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .upgrade-card p {
+      font-size: 14px;
+      opacity: 0.9;
       margin-bottom: 12px;
     }
 
-    .pro-features {
-      list-style: none;
-      margin: 12px 0;
-      text-align: left;
+    .usage-bar {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
     }
 
-    .pro-features li {
-      padding: 4px 0;
-      font-size: 14px;
+    .usage-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      transition: width 0.3s ease;
+      width: 0%;
     }
 
-    .upgrade-card .btn {
-      background: white;
-      color: #667eea;
-      margin-top: 12px;
+    .usage-fill.warning {
+      background: linear-gradient(135deg, #f6ad55, #ed8936);
     }
 
-    .upgrade-card .btn:hover {
-      background: #f7fafc;
+    .usage-fill.danger {
+      background: linear-gradient(135deg, #fc8181, #e53e3e);
+    }
+
+    .usage-text {
+      font-size: 12px;
+      color: #718096;
+      text-align: center;
     }
   </style>
 </head>
@@ -334,6 +310,23 @@
 
     <div class="section">
       <h3>
+        <span class="icon">👤</span>
+        Account Status
+      </h3>
+      
+      <div id="userStatus" class="status warning">
+        <strong>Not Signed In</strong><br>
+        Sign in to track your usage and upgrade to Pro.
+      </div>
+      
+      <div id="userControls" class="hidden">
+        <button id="signInBtn" class="btn btn-primary">Sign In / Sign Up</button>
+        <button id="signOutBtn" class="btn btn-secondary hidden">Sign Out</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>
         <span class="icon">📊</span>
         Usage Statistics
       </h3>
@@ -349,41 +342,24 @@
         </div>
       </div>
       
-      <div class="usage-info" id="usageInfo" style="display: none;">
-        <div class="usage-card">
-          <div class="usage-text">
-            <span id="remainingChecks">0</span> checks remaining today
-          </div>
-          <div class="plan-badge" id="planBadge">Free Plan</div>
+      <div id="usageLimit" class="hidden">
+        <div class="usage-bar">
+          <div class="usage-fill" id="usageFill"></div>
         </div>
+        <div class="usage-text" id="usageText">5 of 5 fact checks used today</div>
       </div>
     </div>
 
-    <div class="section" id="subscriptionSection">
+    <div class="section">
       <h3>
-        <span class="icon">💎</span>
-        Subscription
+        <span class="icon">⭐</span>
+        Upgrade to Pro
       </h3>
       
-      <div class="subscription-info" id="subscriptionInfo">
-        <div class="subscription-card">
-          <div class="subscription-status" id="subscriptionStatus">
-            <div class="status-text">Loading...</div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="upgrade-section" id="upgradeSection" style="display: none;">
-        <div class="upgrade-card">
-          <h4>🚀 Upgrade to Pro</h4>
-          <ul class="pro-features">
-            <li>✅ Unlimited fact checks</li>
-            <li>✅ Priority processing</li>
-            <li>✅ Advanced analytics</li>
-            <li>✅ Premium support</li>
-          </ul>
-          <button class="btn btn-primary" id="upgradeBtn">Upgrade to Pro - $9.99/month</button>
-        </div>
+      <div class="upgrade-card">
+        <h4>Unlock Unlimited Fact Checks</h4>
+        <p>Break free from the 5-per-day limit with our Pro plan.</p>
+        <button id="upgradeBtn" class="btn btn-primary">Upgrade to Pro</button>
       </div>
     </div>
 

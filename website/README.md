@@ -1,101 +1,105 @@
-# Fact Checker Extension Website
+# Fact Checker Pro Website
 
-This is the website for the Fact Checker Extension that handles user authentication and subscription management.
+This is the website component for the Social Media Fact Checker extension, providing user authentication, subscription management, and payment processing.
 
 ## Features
 
-- Firebase Authentication with Google Sign-in
-- Stripe payment processing for Pro subscriptions
-- JWT token generation for extension authentication
-- Webhook handling for subscription updates
+- User registration and authentication using Firebase
+- Subscription management with Stripe integration
+- Free tier with 5 fact checks per day
+- Pro tier with unlimited fact checks
+- Responsive design similar to vidow.io
 
-## Setup
+## Setup Instructions
 
-1. Install dependencies:
-```bash
-npm install
+### 1. Environment Variables
+
+Create a `.env.local` file in the website directory with the following variables:
+
+```env
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+# Firebase Admin (Server-side)
+FIREBASE_ADMIN_PROJECT_ID=your_project_id
+FIREBASE_ADMIN_CLIENT_EMAIL=your_service_account_email
+FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
+
+# Stripe Configuration
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+
+# NextAuth Configuration
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_nextauth_secret_key
+
+# Extension API Key (for extension to authenticate)
+EXTENSION_API_KEY=your_extension_api_secret
 ```
 
-2. Set up environment variables:
-```bash
-cp env.example .env.local
-```
+### 2. Firebase Setup
 
-3. Configure the following environment variables in `.env.local`:
-
-### Firebase Configuration
-- `FIREBASE_API_KEY`: Your Firebase API key
-- `FIREBASE_AUTH_DOMAIN`: Your Firebase auth domain
-- `FIREBASE_PROJECT_ID`: Your Firebase project ID
-- `FIREBASE_STORAGE_BUCKET`: Your Firebase storage bucket
-- `FIREBASE_MESSAGING_SENDER_ID`: Your Firebase messaging sender ID
-- `FIREBASE_APP_ID`: Your Firebase app ID
-
-### Stripe Configuration
-- `STRIPE_PUBLISHABLE_KEY`: Your Stripe publishable key
-- `STRIPE_SECRET_KEY`: Your Stripe secret key
-- `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook secret
-
-### JWT Configuration
-- `JWT_SECRET`: A secret key for JWT token generation
-
-## Firebase Setup
-
-1. Create a Firebase project
-2. Enable Authentication with Google provider
+1. Create a Firebase project at https://console.firebase.google.com
+2. Enable Authentication with Email/Password
 3. Create a Firestore database
-4. Set up the following Firestore rules:
+4. Generate a service account key for server-side operations
+5. Add your domain to Firebase Auth authorized domains
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
+### 3. Stripe Setup
 
-## Stripe Setup
+1. Create a Stripe account at https://stripe.com
+2. Create products and prices for your subscription plans
+3. Set up webhooks pointing to `https://your-domain.com/api/webhook/stripe`
+4. Update the price IDs in `/src/app/api/create-checkout-session/route.ts`
 
-1. Create a Stripe account
-2. Get your API keys from the Stripe dashboard
-3. Set up a webhook endpoint pointing to `/api/webhook`
-4. Configure the webhook to listen for:
-   - `checkout.session.completed`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-
-## Development
+### 4. Installation
 
 ```bash
+cd website
+npm install
 npm run dev
 ```
 
-## Deployment
+### 5. Deployment to Vercel
 
-This project is designed to be deployed on Vercel:
-
-1. Connect your GitHub repository to Vercel
-2. Set up the environment variables in Vercel dashboard
-3. Deploy
+1. Install Vercel CLI: `npm i -g vercel`
+2. Run `vercel` in the website directory
+3. Configure environment variables in Vercel dashboard
+4. Update extension URLs to point to your deployed domain
 
 ## API Endpoints
 
-- `GET /` - Main landing page
-- `POST /api/check-subscription` - Check user subscription status
+- `GET /api/me/limits` - Get user's fact check limits
+- `POST /api/me/limits` - Update user's fact check usage
 - `POST /api/create-checkout-session` - Create Stripe checkout session
-- `POST /api/verify-token` - Verify JWT token from extension
-- `POST /api/webhook` - Stripe webhook handler
-- `POST /api/verify-session` - Verify successful payment
+- `POST /api/webhook/stripe` - Handle Stripe webhooks
 
 ## Extension Integration
 
-The website integrates with the Chrome extension through:
+The extension communicates with this website through:
 
-1. Chrome Identity API for authentication flow
-2. JWT tokens for secure communication
-3. Redirect URLs for seamless user experience
+1. User authentication (stored in extension's local storage)
+2. API calls to check limits before fact checking
+3. Usage tracking and subscription status
 
-The extension should be configured with the website URL in the `authenticateUser` function in `background.js`.
+Update the following URLs in your extension files:
+- `background.js` - API endpoint URLs
+- `popup.js` - Website URLs for authentication and pricing
+
+## Security Notes
+
+- Use environment variables for all sensitive data
+- Implement proper API key validation
+- Use HTTPS in production
+- Validate all user inputs
+- Implement rate limiting for API endpoints
+
+## Support
+
+For issues or questions, please refer to the main extension documentation.

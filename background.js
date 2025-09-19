@@ -628,6 +628,98 @@ async function updateStats() {
   }
 }
 
+async function checkUserLimits() {
+  try {
+    // Get stored user data
+    const result = await chrome.storage.local.get(['user', 'userLimits']);
+    
+    if (!result.user) {
+      // User is not signed in - allow fact check but show sign-in prompt
+      return {
+        allowed: true,
+        message: "Sign in to track your usage",
+        requiresUpgrade: false
+      };
+    }
+
+    const userLimits = result.userLimits;
+    if (!userLimits) {
+      // User is signed in but no limits data - fetch from server
+      await fetchUserLimits();
+      return { allowed: true, message: "", requiresUpgrade: false };
+    }
+
+    // Check if user can perform fact check
+    if (userLimits.plan === 'pro') {
+      return { allowed: true, message: "", requiresUpgrade: false };
+    }
+
+    if (userLimits.factChecksLimit === -1) {
+      return { allowed: true, message: "", requiresUpgrade: false };
+    }
+
+    if (userLimits.factChecksUsed >= userLimits.factChecksLimit) {
+      return {
+        allowed: false,
+        message: `Daily limit reached (${userLimits.factChecksUsed}/${userLimits.factChecksLimit}). Upgrade to Pro for unlimited fact checks.`,
+        requiresUpgrade: true
+      };
+    }
+
+    return { allowed: true, message: "", requiresUpgrade: false };
+
+  } catch (error) {
+    console.error('Error checking user limits:', error);
+    // Allow fact check if there's an error
+    return { allowed: true, message: "", requiresUpgrade: false };
+  }
+}
+
+async function fetchUserLimits() {
+  try {
+    const result = await chrome.storage.local.get(['user']);
+    if (!result.user) return;
+
+    const response = await fetch('https://your-vercel-app.vercel.app/api/me/limits', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'your-extension-api-key', // You'll need to set this
+        'x-user-id': result.user.uid
+      }
+    });
+
+    if (response.ok) {
+      const limits = await response.json();
+      await chrome.storage.local.set({ userLimits: limits });
+      return limits;
+    }
+  } catch (error) {
+    console.error('Error fetching user limits:', error);
+  }
+}
+
+async function updateUserUsage() {
+  try {
+    const result = await chrome.storage.local.get(['user']);
+    if (!result.user) return;
+
+    await fetch('https://your-vercel-app.vercel.app/api/me/limits', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'your-extension-api-key', // You'll need to set this
+        'x-user-id': result.user.uid
+      }
+    });
+
+    // Refresh limits after updating
+    await fetchUserLimits();
+  } catch (error) {
+    console.error('Error updating user usage:', error);
+  }
+}
+
 // Usage limit checking
 async function checkUsageLimit(sendResponse) {
   try {

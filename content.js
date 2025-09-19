@@ -127,11 +127,7 @@ class SocialMediaExtractor {
       this.displayResults(post, result);
     } catch (error) {
       console.error('Fact check error:', error);
-      if (error.message === 'LIMIT_REACHED') {
-        this.showLimitReachedError(post, error.usageInfo);
-      } else {
-        this.showError(post, error.message);
-      }
+      this.showError(post, error.message);
     } finally {
       if (button) {
         button.innerHTML = '🔍 Fact Check';
@@ -242,12 +238,6 @@ class SocialMediaExtractor {
           }
         } else if (response && response.success) {
           resolve(response.results);
-        } else if (response && response.limitReached) {
-          // Handle usage limit reached
-          reject(new Error('LIMIT_REACHED', { 
-            usageInfo: response.usageInfo,
-            isLimitError: true 
-          }));
         } else {
           reject(new Error(response?.error || 'Unknown error'));
         }
@@ -674,79 +664,6 @@ class SocialMediaExtractor {
         overlay.remove();
       }
     }, timeout);
-  }
-
-  showLimitReachedError(post, usageInfo) {
-    // Remove any existing overlay
-    const existingOverlay = document.querySelector('.fact-check-overlay');
-    if (existingOverlay) {
-      existingOverlay.remove();
-    }
-
-    // Create overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'fact-check-overlay';
-    
-    const remainingChecks = usageInfo.remainingChecks || 0;
-    const plan = usageInfo.plan || 'free';
-    
-    overlay.innerHTML = `
-      <div class="fact-check-modal">
-        <div class="fact-check-header">
-          <div class="fact-check-title">
-            🚫 Daily Limit Reached
-          </div>
-          <button class="fact-check-close" data-close="true">×</button>
-        </div>
-        <div class="fact-check-content">
-          <div class="fact-check-error limit-reached">
-            <div class="limit-info">
-              <h4>You've reached your daily limit</h4>
-              <p>You've used ${usageInfo.todayChecks || 0} out of ${usageInfo.dailyLimit || 5} fact checks today.</p>
-              <p>Your limit will reset tomorrow, or upgrade to Pro for unlimited fact checks!</p>
-            </div>
-            <div class="upgrade-section">
-              <h5>🚀 Upgrade to Pro Plan</h5>
-              <ul class="pro-features">
-                <li>✅ Unlimited fact checks</li>
-                <li>✅ Priority processing</li>
-                <li>✅ Advanced analytics</li>
-                <li>✅ Premium support</li>
-              </ul>
-              <button class="upgrade-btn" id="upgradeToPro">Upgrade to Pro - $9.99/month</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Add to document
-    document.body.appendChild(overlay);
-
-    // Add event listeners for interactive elements
-    this.setupOverlayEventListeners(overlay);
-    
-    // Add upgrade button functionality
-    const upgradeBtn = overlay.querySelector('#upgradeToPro');
-    if (upgradeBtn) {
-      upgradeBtn.addEventListener('click', () => {
-        this.launchUpgradeFlow();
-        overlay.remove();
-      });
-    }
-  }
-
-  launchUpgradeFlow() {
-    // Send message to background script to launch upgrade flow
-    chrome.runtime.sendMessage({ action: 'authenticateUser' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error launching upgrade flow:', chrome.runtime.lastError);
-      } else if (response && response.success) {
-        console.log('Upgrade flow completed successfully');
-      } else {
-        console.error('Upgrade flow failed:', response?.error);
-      }
-    });
   }
 
   observePageChanges() {
